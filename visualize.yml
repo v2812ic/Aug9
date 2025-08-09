@@ -1,0 +1,17 @@
+name: visualize
+channels:
+  - conda-forge
+dependencies:
+  - python=3.9.5
+  - pinocchio=2.6.20
+  - pip
+  - pip:
+      - foxglove-schemas-protobuf
+      - foxglove-websocket
+      - protobuf==3.20.0
+      - meshcat
+      - tqdm
+      - watchdog
+      - ruamel.yaml==0.17.10
+      - scipy
+      - mcap-protobuf-support==0.4.0
