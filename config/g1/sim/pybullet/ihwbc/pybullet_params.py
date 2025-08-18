@@ -5,6 +5,7 @@ class Config(object):
 
     # Victor's params
     v_water = 0.0
+    endSimulation = 15
 
     # Observer
     observerActive = True
@@ -12,6 +13,18 @@ class Config(object):
     gain_observer = 50
     InitObservations = 1 
 
+    solver_frequency = 100
+    rglrztn_forces = 0.1
+    pinv_forces = False
+    printForces = False
+    plotTorques = True
+    left_ids = []
+    right_ids = []
+    pelvis_ids = [-1]
+
+    link_idx_vec = [-1]
+
+    
     MAX_SIMULATION_TIME = 5.0  # seconds
     CONTROLLER_DT = 0.00125
     N_SUBSTEP = 1

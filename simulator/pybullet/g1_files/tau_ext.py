@@ -22,8 +22,12 @@ def get_tau_ext(dt, model, data, q, v, tau_c, tau_j):
 
     pin.computeAllTerms(model, data, q, v)
     M, C, g = data.M, data.C, data.g
+
     k = M @ v
-    m = C.T @ v - g + tau_j + tau_c           
+    m = C.T @ v - g + tau_j + tau_c 
+    
+    if n_filter == 0:
+        raise ValueError("El orden del filtro no puede ser ")
 
     gamma[0] = (K[0] @ (k - k_prev - m*dt)      
                 + (np.eye(33) - dt*K[0]) @ gamma[-1])

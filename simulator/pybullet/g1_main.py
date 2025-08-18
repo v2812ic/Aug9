@@ -6,6 +6,7 @@ import numpy as np
 import pybullet as pb
 import cv2
 import pinocchio as pin
+import yaml
 
 # Rutas (para pybind y utilidades del proyecto)
 cwd = os.getcwd()
@@ -15,6 +16,13 @@ urdf_path = cwd + "/robot_model/g1/g1_29dof_lock_waist.urdf"
 from config.g1.sim.pybullet.ihwbc.pybullet_params import Config
 from util.python_utils import pybullet_util
 import g1_interface_py
+
+# ===== Import del coeficiente de rozamiento
+yaml_path = cwd + "/config/g1/sim/pybullet/ihwbc/pnc.yaml"
+with open(yaml_path, 'r') as f:
+    config_yaml = yaml.safe_load(f)
+mu_ = config_yaml["wbc"]["contact"]["mu"]
+mu_ = 0.5
 
 # ===== Segmentación del main =====
 from g1_files.sensors import get_sensor_data_from_pybullet, compute_base_joint_debug
@@ -26,14 +34,18 @@ from g1_files.cleanup import install_signal_handler
 from g1_files.observe import observe
 from g1_files.contact import get_contact_wrenches
 from g1_files.tau_ext import get_tau_ext
+from g1_files.solver_forces import solve_force
+from g1_files.forces_to_world import group_tripod
 
 # ====== Plots (se generan en Ctrl+C) ======
 from g1_files.plots import make_plots
 
 # Aplicación de fuerzas externas transitorias
+from g1_files.external_forces import apply_external_forces
 
-# Config opcional
-v_water = getattr(Config, "v_water", None)
+# Mirar el uso de actuadores
+from g1_files.printTorques import printTorques, plotTorques
+flag_torque_limit = False
 
 
 def main():
@@ -66,6 +78,23 @@ def main():
 
     _ground = pb.loadURDF(cwd + "/robot_model/ground/plane.urdf", useFixedBase=1)
     pb.configureDebugVisualizer(pb.COV_ENABLE_RENDERING, 1)
+
+    # ====== Lateral friction coefficients ======
+
+    pb.changeDynamics(g1_humanoid, 6, lateralFriction = mu_) #pie izquierdo
+    pb.changeDynamics(g1_humanoid, 13, lateralFriction = mu_) #derecho
+    #pb.changeDynamics(_ground, -1, lateralFriction=1) # setada a 1 para que mutot = 1 *mu, ya está por defecto
+
+    for i in range(pb.getNumJoints(g1_humanoid)):
+        link_name = pb.getJointInfo(g1_humanoid, i)[12].decode('UTF-8')
+        dynamics_info = pb.getDynamicsInfo(g1_humanoid, i)
+        lateral_friction = dynamics_info[1]
+        print(f"Robot Link '{link_name}' (ID: {i}): Friction coefficient = {lateral_friction}")
+
+    ground_dynamics_info = pb.getDynamicsInfo(_ground, -1)
+    ground_lateral_friction = ground_dynamics_info[1]
+    print(f"\nGround: Friction coefficient = {ground_lateral_friction}")
+    print("=======================================\n")
 
     # ====== Config robot ======
     (
@@ -118,14 +147,27 @@ def main():
         if link_name in link_id_dict:
             pb.changeDynamics(g1_humanoid, link_id_dict[link_name],
                               mass=0.0, localInertiaDiagonal=[0.0, 0.0, 0.0])
+            
+    
 
+    # ====== Init de variables ======
     v_prev = None
     tau_ext = np.zeros(model.nv)
     tau_j = np.zeros(model.nv)
+    f_ext = None
 
     # ====== Logs configurables ======
     time_log = []
-    tau_ext_log = []        
+    tau_ext_log = []    
+    cf_left_log = []
+    cf_right_log = []
+
+    pos_left_log = []
+    ori_left_log = []
+    pos_right_log = []
+    ori_right_log = []
+
+
 
     # ====== Finalización/plots (para Ctrl+C) ======
     def finalize():
@@ -135,7 +177,15 @@ def main():
                 outdir="plots",
                 time=time_log,
                 tau_ext=tau_ext_log,
+                cf_left_log = cf_left_log,
+                cf_right_log = cf_right_log,
+                pos_left_log = pos_left_log,
+                pos_right_log = pos_right_log,
+                ori_left_log = ori_left_log,
+                ori_right_log = ori_right_log,
             )
+            plotTorques()
+            
         except Exception as e:
             print(f"[finalize] Error generando plots: {e}")
 
@@ -146,7 +196,7 @@ def main():
     )
 
     # ====== Bucle principal ======
-    while True:
+    while count*dt < Config.endSimulation or not Config.endSimulation:
         # --- Depuración: estados "ground truth" del base joint ---
         (base_joint_pos, base_joint_quat,
          base_joint_lin_vel, base_joint_ang_vel) = compute_base_joint_debug(
@@ -215,29 +265,60 @@ def main():
             cv2.imwrite(f"{video_dir}/step{jpg_count:06d}.jpg", frame)
             jpg_count += 1
 
+        apply_external_forces(g1_humanoid, count*dt)
+
         # --- Observador ---
+        
         q_pin, v_pin, a_pin = observe(g1_humanoid, model, bullet_to_pino, dt, v_prev)
-        tau_c, tau_cf = get_contact_wrenches(g1_humanoid, _ground, model, data, q_pin)
+        tau_c, tau_cf, cf_left, cf_right = get_contact_wrenches(g1_humanoid, _ground, model, data, q_pin)
         v_prev = v_pin.copy()
 
         tau_j[:] = 0.0
         tau_j[6:] = rpc_trq_command  # asigna torques actuados en el segmento articular
 
         tau_ext = get_tau_ext(dt, model, data, q_pin, v_pin, tau_c, tau_j)
-        
+
+        #print(f"{tau_ext[:6]}")
+
+        # --- Solver de fuerzas en las piernas
+        if not count % Config.solver_frequency:
+            com_W = pin.centerOfMass(model, data, q_pin)
+            f_ext_local = solve_force(Config.rglrztn_forces, Config.link_idx_vec, tau_ext, g1_humanoid, model, data, q_pin, Config.pinv_forces, Config.printForces)
+            #print("globals: ", f_ext_local)
+            f_ext = group_tripod(f_ext_local, g1_humanoid, Config.link_idx_vec, Config.left_ids, Config.right_ids, Config.pelvis_ids, ref_W = com_W)
+
+           
+            rpc_g1_interface.set_external_force(f_ext)
+                
         # Se la pasamos a C++ cuando ha empezado
         if Config.InitObservations < count*dt:
             rpc_g1_interface.set_external_torque(tau_ext)
+            rpc_g1_interface.set_external_force(f_ext)
+            
+        # Informacion varia de la posicion y orientacion del pie
+        pos_left, ori_left = pb.getLinkState(g1_humanoid, 6)[0], pb.getLinkState(g1_humanoid, 6)[1]
+        pos_right, ori_right = pb.getLinkState(g1_humanoid, 13)[0], pb.getLinkState(g1_humanoid, 13)[1]
 
         # --- Logs ---
         time_log.append(count * dt)
         tau_ext_log.append(np.array(tau_ext))
+        cf_left_log.append(cf_left)
+        cf_right_log.append(cf_right)
         
+        pos_left_log.append(pos_left)
+        ori_left_log.append(ori_left)
+        pos_right_log.append(pos_right)
+        ori_right_log.append(ori_right)
 
         # --- Step ---
         pb.stepSimulation()
         count += 1
 
+        if Config.plotTorques:
+            printTorques(g1_humanoid, count*dt, rpc_trq_command, flag_torque_limit, verbose = False)
+    
+    finalize()
+        
 
 if __name__ == "__main__":
     main()

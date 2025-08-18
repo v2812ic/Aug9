@@ -8,6 +8,9 @@ def get_contact_wrenches(robot, ground, model, data, q_pin):
 
     tau_cf = []
 
+    cf_left = []
+    cf_right = []
+
     # It's crucial that 'data' reflects the current 'q_pin' for frame kinematics.
     # pin.computeFrameJacobian might update kinematics for the specific frame,
     # but to be absolutely safe or if you need frame poses for other things
@@ -60,10 +63,15 @@ def get_contact_wrenches(robot, ground, model, data, q_pin):
 
         wrench_w = np.hstack([f_world, M_at_frame_origin_w])
 
+        if link_idx == 6:
+            cf_left.append(wrench_w)
+        if link_idx == 13:
+            cf_right.append(wrench_w)
+
         qc_ind = J6_world.T @ wrench_w
 
         tau_cf.append(qc_ind)
 
         qc_tau += qc_ind
 
-    return qc_tau, tau_cf
+    return qc_tau, tau_cf, cf_left, cf_right
