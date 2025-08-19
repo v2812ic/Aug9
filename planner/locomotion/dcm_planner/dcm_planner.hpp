@@ -107,12 +107,15 @@ public:
 
 protected:
   // setter related variables
-  double mass_ = 40;
+  double mass_ = 35.1;
   double gravity_ = 9.81;
   double z_vrp_ = 0.65;
   double b_ = std::sqrt(z_vrp_ / gravity_);
   double t_start_ = 0.;
   Eigen::Quaterniond init_pelvis_quat_ = Eigen::Quaterniond::Identity();
+
+  double offset_verga = b_ * b_ * 20 /mass_;
+  Eigen::Vector3d offset_ = Eigen::Vector3d(offset_verga, 0.0, 0.0);
 
   // -----------------------------------------------------
   std::vector<FootStep> foot_step_list_;

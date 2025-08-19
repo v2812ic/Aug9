@@ -20,6 +20,8 @@ public:
 
   void SetParameters(const YAML::Node &node) override;
 
+  bool ShouldReplan();
+
 private:
   G1ControlArchitecture *ctrl_arch_;
 
@@ -29,4 +31,6 @@ private:
   bool b_use_fixed_foot_pos_;
   Eigen::Isometry3d nominal_lfoot_iso_;
   Eigen::Isometry3d nominal_rfoot_iso_;
+
+  bool replanning_{false};
 };

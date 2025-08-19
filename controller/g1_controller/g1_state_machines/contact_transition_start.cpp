@@ -28,6 +28,10 @@ ContactTransitionStart::ContactTransitionStart(
   sp_ = G1StateProvider::GetStateProvider();
 }
 
+bool ContactTransitionStart::ShouldReplan(){
+  return false;
+}
+
 void ContactTransitionStart::FirstVisit() {
   state_machine_start_time_ = sp_->current_time_;
 
@@ -124,9 +128,34 @@ void ContactTransitionStart::FirstVisit() {
           std::to_string(sp_->planning_id_));
       sp_->planning_id_ += 1;
     } else {
-      // TODO: replanning
-      // TODO: consider torso ang vel
+      // TODO: consider torso ang vel. EStamos considerando el replan, que podrá funcionar o no. Ahora vemos
       int transfer_type = dcm_transfer_type::kMidStep;
+      replanning_ = ShouldReplan(); // decide si se debería replanear el paso en función de las fuerzas que estamos viendo
+
+      if (replanning_){
+        
+        Eigen::Vector3d current_dcm_pos = Eigen::Vector3d::Zero();
+        current_dcm_pos << sp_-> dcm_;
+
+        Eigen::Vector3d current_dcm_vel = Eigen::Vector3d::Zero();
+        current_dcm_vel << sp_-> dcm_vel_;
+
+        std::cout << "[Replan] Initializing from current state." << std::endl;
+        std::cout << "  Current DCM Pos: " << current_dcm_pos.transpose() << std::endl;
+        std::cout << "  Current DCM Vel: " << current_dcm_vel.transpose() << std::endl;
+
+        Eigen::Quaterniond torso_quat(robot_->GetLinkIsometry(g1_link::torso_com_link).linear());
+
+        ctrl_arch_->dcm_tm_->Initialize(
+            sp_->current_time_, dcm_transfer_type::kMidStep, torso_quat,
+            current_dcm_pos, current_dcm_vel);
+
+        ctrl_arch_->dcm_tm_->GetDCMPlanner()->SaveSolution(
+            std::to_string(sp_->planning_id_)); // namas guarda el indice del archivo de replaneo que utiliza
+        sp_->planning_id_ += 1;
+      }
+      
+
       // ctrl_arch_->dcm_tm_->Initialize(
       // sp_->current_time_, dcm_transfer_type::kMidStep, init_torso_quat,
       // init_dcm_pos, init_dcm_vel);

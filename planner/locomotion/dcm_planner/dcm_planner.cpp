@@ -458,12 +458,12 @@ Eigen::Vector3d DCMPlanner::GetRefDCM(const double t_global) const {
   if (t <= _GetDoubleSupportEndTime(step_idx)) {
     // use polynomial interpolation
     local_time = t - _GetDoubleSupportStartTime(step_idx);
-    return _GetDCMDoubleSupportPoly(step_idx, local_time);
+    return _GetDCMDoubleSupportPoly(step_idx, local_time) + offset_;
     // return _GetDCMDoubleSupportMinJerk(step_idx, local_time);
   } else {
     // use exponential interpolation
     local_time = t - _GetTimeStepStart(step_idx);
-    return _GetDCMExponential(step_idx, local_time);
+    return _GetDCMExponential(step_idx, local_time) + offset_;
   }
 }
 Eigen::Vector3d DCMPlanner::GetRefDCMVel(const double t_global) const {

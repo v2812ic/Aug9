@@ -1,4 +1,4 @@
-# sim_main.py
+# ===== Imports basicos =====
 import os
 import sys
 import shutil
@@ -7,8 +7,13 @@ import pybullet as pb
 import cv2
 import pinocchio as pin
 import yaml
+import time
 
-# Rutas (para pybind y utilidades del proyecto)
+# ===== Automatización de las pruebas =====
+from pynput.keyboard import Controller
+keyboard = Controller()
+
+# ===== Rutas (para pybind y utilidades del proyecto) =====
 cwd = os.getcwd()
 sys.path.extend([cwd, cwd + "/build/lib"])
 urdf_path = cwd + "/robot_model/g1/g1_29dof_lock_waist.urdf"
@@ -17,12 +22,11 @@ from config.g1.sim.pybullet.ihwbc.pybullet_params import Config
 from util.python_utils import pybullet_util
 import g1_interface_py
 
-# ===== Import del coeficiente de rozamiento
+# ===== Import del coeficiente de rozamiento =====
 yaml_path = cwd + "/config/g1/sim/pybullet/ihwbc/pnc.yaml"
 with open(yaml_path, 'r') as f:
     config_yaml = yaml.safe_load(f)
 mu_ = config_yaml["wbc"]["contact"]["mu"]
-mu_ = 0.5
 
 # ===== Segmentación del main =====
 from g1_files.sensors import get_sensor_data_from_pybullet, compute_base_joint_debug
@@ -40,10 +44,10 @@ from g1_files.forces_to_world import group_tripod
 # ====== Plots (se generan en Ctrl+C) ======
 from g1_files.plots import make_plots
 
-# Aplicación de fuerzas externas transitorias
+# ===== Aplicación de fuerzas externas transitorias =====
 from g1_files.external_forces import apply_external_forces
 
-# Mirar el uso de actuadores
+# ===== Mirar el uso de actuadores =====
 from g1_files.printTorques import printTorques, plotTorques
 flag_torque_limit = False
 
@@ -195,6 +199,8 @@ def main():
         on_exit=finalize  
     )
 
+    test_ = False
+
     # ====== Bucle principal ======
     while count*dt < Config.endSimulation or not Config.endSimulation:
         # --- Depuración: estados "ground truth" del base joint ---
@@ -279,6 +285,14 @@ def main():
         tau_ext = get_tau_ext(dt, model, data, q_pin, v_pin, tau_c, tau_j)
 
         #print(f"{tau_ext[:6]}")
+
+        if not test_ and count*dt > 4:
+            print("Fuerza aplicando")
+            test_ = True
+            print("Iniciando caminata")
+            time.sleep(0.01)
+            keyboard.type('8')
+
 
         # --- Solver de fuerzas en las piernas
         if not count % Config.solver_frequency:

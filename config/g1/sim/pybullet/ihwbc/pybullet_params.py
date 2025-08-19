@@ -5,7 +5,7 @@ class Config(object):
 
     # Victor's params
     v_water = 0.0
-    endSimulation = 15
+    endSimulation = 208
 
     # Observer
     observerActive = True
@@ -22,7 +22,7 @@ class Config(object):
     right_ids = []
     pelvis_ids = [-1]
 
-    link_idx_vec = [-1]
+    link_idx_vec = [-1] # Este man tiene que coincidir cn la segmentacion que se haga de left-right-pelvis
 
     
     MAX_SIMULATION_TIME = 5.0  # seconds

@@ -31,7 +31,7 @@ void FootStep::PrintInfo() {
   std::cout << "ori = " << quat_ori_.coeffs().transpose() << std::endl;
 }
 
-std::vector<FootStep> FootStep::GetFwdWalkFootStep(
+std::vector<FootStep> FootStep::GetFwdWalkFootStep(            // Aquí se calculan las posiciones de los pasos, pero no tiene nada que ver con el DCM planner. 
     const int n_steps, const double forward_step_length,
     const double nominal_footwidth, const int first_swing_leg,
     const FootStep &current_mid_foot) {
