@@ -73,6 +73,7 @@ void DCMPlanner::InitializeFootStepsVrp(
 
     previous_step_foot_side = input_footstep_list[step_idx].GetFootSide();
   }
+  
   vrp_type_list_.push_back(vrp_type::kEnd);
 
   // compute dcm states
@@ -458,12 +459,12 @@ Eigen::Vector3d DCMPlanner::GetRefDCM(const double t_global) const {
   if (t <= _GetDoubleSupportEndTime(step_idx)) {
     // use polynomial interpolation
     local_time = t - _GetDoubleSupportStartTime(step_idx);
-    return _GetDCMDoubleSupportPoly(step_idx, local_time) + offset_;
+    return _GetDCMDoubleSupportPoly(step_idx, local_time);
     // return _GetDCMDoubleSupportMinJerk(step_idx, local_time);
   } else {
     // use exponential interpolation
     local_time = t - _GetTimeStepStart(step_idx);
-    return _GetDCMExponential(step_idx, local_time) + offset_;
+    return _GetDCMExponential(step_idx, local_time);
   }
 }
 Eigen::Vector3d DCMPlanner::GetRefDCMVel(const double t_global) const {

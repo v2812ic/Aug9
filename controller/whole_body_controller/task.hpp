@@ -124,6 +124,7 @@ public:
   void SetKi(Eigen::VectorXd ki) { ki_ = ki; }
 
   virtual void SetExternalTorque(const Eigen::VectorXd&){}
+  virtual void SetExternalForce(const Eigen::VectorXd&){}
 
 
   // Debug

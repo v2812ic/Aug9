@@ -111,7 +111,7 @@ def _quat_series_to_euler_zyx(quat_series, degrees=True):
 # -----------------------------
 # Plotting básicos
 # -----------------------------
-def _plot_vector_series(t, Y, title, xlabel, ylabel, labels, filename):
+def _plot_vector_series(t, Y, title, xlabel, ylabel, labels, filename, yscale = None):
     """
     Dibuja múltiples series columnares Y (T, D) en la misma figura.
     - t: (T,)
@@ -140,6 +140,10 @@ def _plot_vector_series(t, Y, title, xlabel, ylabel, labels, filename):
 
     _safe_makedirs_for(filename)
     plt.figure()
+
+    if yscale:
+        plt.yscale(yscale)
+
     for i in range(D):
         plt.plot(t, Y[:, i], label=labels[i])
     plt.xlabel(xlabel)
@@ -386,6 +390,10 @@ def make_plots(
     pos_right_log=None,  # (T,3)
     ori_left_log=None,   # (T,4) cuat [x,y,z,w]
     ori_right_log=None,  # (T,4)
+    f_ext_log = None,
+    f_real_log = None,
+    f_A_r_log=None,   # <-- NUEVO
+    f_D_r_log=None,
     **_ignore,
 ):
     """
@@ -488,3 +496,96 @@ def make_plots(
         T_R = len(pos_right_log) if pos_right_log is not None else len(ori_right_log)
         tR  = _resolve_time(time, T_R, dt)
         _plot_pose_series(tR, pos_right_log, ori_right_log, "Right")
+    
+    if f_ext_log is not None:
+
+        WL = np.array(np.asarray(f_ext_log)[:, 0])
+        WR = np.array(np.asarray(f_ext_log)[:, 1])
+        WP = np.array(np.asarray(f_ext_log)[:, 2])
+
+        WT = WL + WR + WP
+        _plot_vector_series(t, WT, title = "Computed external wrench", xlabel = "Time (s)", ylabel = "Force/Torque", labels = ["Fx (N)", "Fy(N)", "Fz(N)", "Mx(Nm)", "My(Nm)", "Mz(Nm)"], filename = os.path.join(outdir, "External_wrench.png"))
+    
+    if f_real_log is not None:
+        T = len(f_real_log)
+        t = _resolve_time(time, T, dt)
+        labels_wrench = ["Fx (N)", "Fy (N)", "Fz (N)", "Mx (Nm)", "My (Nm)", "Mz (Nm)"]
+        _plot_vector_series(
+            t, f_real_log, 
+            title="Total Hydrodynamic Wrench on CoM", 
+            xlabel="Time (s)", 
+            ylabel="Force / Torque", 
+            labels=labels_wrench, 
+            filename=os.path.join(outdir, "hydro_wrench_total.png")
+        )
+
+    if f_A_r_log is not None:
+        T = len(f_A_r_log)
+        t = _resolve_time(time, T, dt)
+        labels_wrench = ["Fx (N)", "Fy (N)", "Fz (N)", "Mx (Nm)", "My (Nm)", "Mz (Nm)"]
+        _plot_vector_series(
+            t, f_A_r_log, 
+            title="Archimedes Buoyancy Wrench on CoM", 
+            xlabel="Time (s)", 
+            ylabel="Force / Torque", 
+            labels=labels_wrench, 
+            filename=os.path.join(outdir, "hydro_wrench_archimedes.png")
+        )
+
+    if f_D_r_log is not None:
+        T = len(f_D_r_log)
+        t = _resolve_time(time, T, dt)
+        labels_wrench = ["Fx (N)", "Fy (N)", "Fz (N)", "Mx (Nm)", "My (Nm)", "Mz (Nm)"]
+        _plot_vector_series(
+            t, f_D_r_log, 
+            title="Hydrodynamic Drag Wrench on CoM", 
+            xlabel="Time (s)", 
+            ylabel="Force / Torque", 
+            labels=labels_wrench, 
+            filename=os.path.join(outdir, "hydro_wrench_drag.png")
+        )
+
+    if f_ext_log is not None and f_real_log is not None:
+        # Asegurarse de que los logs tienen la misma longitud
+        if len(f_ext_log) == len(f_real_log):
+            T = len(f_real_log)
+            t = _resolve_time(time, T, dt)
+
+            # Sumar los componentes del wrench calculado (datos completos)
+            WL = np.array(np.asarray(f_ext_log)[:, 0])
+            WR = np.array(np.asarray(f_ext_log)[:, 1])
+            WP = np.array(np.asarray(f_ext_log)[:, 2])
+            WT_computed = WL + WR + WP
+
+            # Convertir el wrench real a un array de numpy (datos completos)
+            f_real_arr = _ensure_2d(f_real_log)
+
+            # --- FILTRADO DE DATOS PARA t > 1s ---
+            mask = t > 1
+            if not np.any(mask):
+                print("[plots] Aviso: No hay datos para t > 1s. No se puede graficar el error filtrado.")
+            else:
+                t_filt = t[mask]
+                WT_computed_filt = WT_computed[mask]
+                f_real_arr_filt = f_real_arr[mask]
+                # ------------------------------------
+
+                # Calcular el error relativo sobre los datos filtrados
+                abs_error = np.abs(WT_computed_filt - f_real_arr_filt)
+                relative_error = abs_error / (np.abs(f_real_arr_filt) + 1e-8)
+                
+                # Etiquetas para el gráfico
+                labels_error = ["ΔFx rel", "ΔFy rel", "ΔFz rel", "ΔMx rel", "ΔMy rel", "ΔMz rel"]
+                
+                _plot_vector_series(
+                    t_filt,  # <--- Usar tiempo filtrado
+                    relative_error,
+                    title="Error Relativo: Wrench Calculado vs. Real (para t > 1s)", # <--- Título actualizado
+                    xlabel="Tiempo (s)",
+                    ylabel="Error Relativo (adimensional)",
+                    labels=labels_error,
+                    filename=os.path.join(outdir, "wrench_error_relative_log_t1.png"), # <--- Nombre de archivo nuevo
+                    yscale='log'
+                )
+        else:
+            print("[plots] Aviso: f_ext_log y f_real_log tienen longitudes diferentes. No se puede graficar el error.")

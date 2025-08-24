@@ -45,12 +45,16 @@ from g1_files.forces_to_world import group_tripod
 from g1_files.plots import make_plots
 
 # ===== Aplicación de fuerzas externas transitorias =====
-from g1_files.external_forces import apply_external_forces
+from g1_files.external_forces import apply_external_forces # test
+from g1_files.classes import SectionManager, Water
+from g1_files.interpolator_pressure import PressureInterpolator
 
 # ===== Mirar el uso de actuadores =====
 from g1_files.printTorques import printTorques, plotTorques
 flag_torque_limit = False
 
+# ===== Acciones segun el momento
+from g1_files.take_actions import *
 
 def main():
     # ====== Visualización / Sim ======
@@ -160,35 +164,51 @@ def main():
     tau_j = np.zeros(model.nv)
     f_ext = None
 
+    # == Objeto de agua ==
+    water = Water()
+
+    # == Lista de secciones del humanoide donde aplicar la fuerza ==
+    pressureInterpolator = PressureInterpolator()
+    sections = SectionManager(link_id_dict, Config.shin_params, Config.thigh_params, Config.pelvis_params, pressureInterpolator)
+
     # ====== Logs configurables ======
     time_log = []
     tau_ext_log = []    
     cf_left_log = []
     cf_right_log = []
 
+    f_ext_log = []
+
+    f_real_log = []
+    f_D_r_log = []
+    f_A_r_log = []
+
     pos_left_log = []
     ori_left_log = []
     pos_right_log = []
     ori_right_log = []
 
-
-
     # ====== Finalización/plots (para Ctrl+C) ======
     def finalize():
         try:
             # Pasá SOLO lo que quieras graficar; lo que no pases, no se dibuja.
-            make_plots(
-                outdir="plots",
-                time=time_log,
-                tau_ext=tau_ext_log,
-                cf_left_log = cf_left_log,
-                cf_right_log = cf_right_log,
-                pos_left_log = pos_left_log,
-                pos_right_log = pos_right_log,
-                ori_left_log = ori_left_log,
-                ori_right_log = ori_right_log,
-            )
-            plotTorques()
+            if Config.plots:
+                make_plots(
+                    outdir="plots",
+                    time=time_log,
+                    tau_ext=tau_ext_log,
+                    cf_left_log = cf_left_log,
+                    cf_right_log = cf_right_log,
+                    pos_left_log = pos_left_log,
+                    pos_right_log = pos_right_log,
+                    ori_left_log = ori_left_log,
+                    ori_right_log = ori_right_log,
+                    f_ext_log = f_ext_log,
+                    f_real_log = f_real_log,
+                    f_A_r_log= f_A_r_log,
+                    f_D_r_log = f_D_r_log 
+                )
+                plotTorques()
             
         except Exception as e:
             print(f"[finalize] Error generando plots: {e}")
@@ -270,33 +290,27 @@ def main():
             )
             cv2.imwrite(f"{video_dir}/step{jpg_count:06d}.jpg", frame)
             jpg_count += 1
-
-        apply_external_forces(g1_humanoid, count*dt)
-
+        
         # --- Observador ---
         
         q_pin, v_pin, a_pin = observe(g1_humanoid, model, bullet_to_pino, dt, v_prev)
+        com_W = pin.centerOfMass(model, data, q_pin)
+
         tau_c, tau_cf, cf_left, cf_right = get_contact_wrenches(g1_humanoid, _ground, model, data, q_pin)
         v_prev = v_pin.copy()
-
+        
         tau_j[:] = 0.0
         tau_j[6:] = rpc_trq_command  # asigna torques actuados en el segmento articular
 
         tau_ext = get_tau_ext(dt, model, data, q_pin, v_pin, tau_c, tau_j)
 
-        #print(f"{tau_ext[:6]}")
-
         if not test_ and count*dt > 4:
-            print("Fuerza aplicando")
             test_ = True
-            print("Iniciando caminata")
-            time.sleep(0.01)
-            keyboard.type('8')
+            take_action_4()
 
 
         # --- Solver de fuerzas en las piernas
         if not count % Config.solver_frequency:
-            com_W = pin.centerOfMass(model, data, q_pin)
             f_ext_local = solve_force(Config.rglrztn_forces, Config.link_idx_vec, tau_ext, g1_humanoid, model, data, q_pin, Config.pinv_forces, Config.printForces)
             #print("globals: ", f_ext_local)
             f_ext = group_tripod(f_ext_local, g1_humanoid, Config.link_idx_vec, Config.left_ids, Config.right_ids, Config.pelvis_ids, ref_W = com_W)
@@ -308,6 +322,16 @@ def main():
         if Config.InitObservations < count*dt:
             rpc_g1_interface.set_external_torque(tau_ext)
             rpc_g1_interface.set_external_force(f_ext)
+
+        # --- Aplicacion de fuerzas ---
+        water.update_params()
+        # apply_external_forces(g1_humanoid, count*dt) # si aplica
+
+        f_A_r, t_A_r, f_D_r, t_D_r = np.zeros(3), np.zeros(3), np.zeros(3), np.zeros(3)
+
+        if count * dt > Config.initForce:
+            f_A_r, t_A_r = sections.apply_archimedes(g1_humanoid, com_W, water)
+            f_D_r, t_D_r = sections.apply_drag(g1_humanoid, com_W, water)
             
         # Informacion varia de la posicion y orientacion del pie
         pos_left, ori_left = pb.getLinkState(g1_humanoid, 6)[0], pb.getLinkState(g1_humanoid, 6)[1]
@@ -318,6 +342,14 @@ def main():
         tau_ext_log.append(np.array(tau_ext))
         cf_left_log.append(cf_left)
         cf_right_log.append(cf_right)
+
+        f_ext_log.append(f_ext)
+
+        F_arch = np.hstack((np.array(f_A_r), np.array(t_A_r)))
+        F_drag = np.hstack((np.array(f_D_r), np.array(t_D_r)))
+        f_real_log.append(F_arch + F_drag)
+        f_D_r_log.append(F_drag)
+        f_A_r_log.append(F_arch)
         
         pos_left_log.append(pos_left)
         ori_left_log.append(ori_left)

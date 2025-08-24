@@ -27,7 +27,7 @@ def get_tau_ext(dt, model, data, q, v, tau_c, tau_j):
     m = C.T @ v - g + tau_j + tau_c 
     
     if n_filter == 0:
-        raise ValueError("El orden del filtro no puede ser ")
+        raise ValueError("El orden del filtro no puede ser 0")
 
     gamma[0] = (K[0] @ (k - k_prev - m*dt)      
                 + (np.eye(33) - dt*K[0]) @ gamma[-1])

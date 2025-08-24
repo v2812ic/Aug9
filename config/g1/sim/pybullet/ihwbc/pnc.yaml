@@ -113,8 +113,8 @@ wbc:
       kd : [14., 14., 10.]
 
     pelvis_ori_task:
-      weight : [100., 100., 100.]
-      kp : [200., 200., 100.]
+      weight : [1000., 1000., 1000.]
+      kp : [200., 200., 500.]
       kd : [14., 14., 10.]
 
     upper_body_task:
@@ -164,14 +164,14 @@ wbc:
 
   qp:
     b_save_costs: false
-    lambda_qddot: 5e-5 ##regularization
+    lambda_qddot: 1e-5 ##regularization
     lambda_rf: [1e-1, 1e-1, 1e-1, 1e-5, 1e-5, 1e-5, 1e-1, 1e-1, 1e-1, 1e-5, 1e-5, 1e-5]  #regulariztion lfoot / rfoot (trq, force order)
     b_trq_limit: true
 
   joint_integrator:
     pos_cutoff_freq: 2.0 #hz
     vel_cutoff_freq: 2. #hz
-    max_pos_err: 0.2 #rad
+    max_pos_err: 0.01 #rad
 
 state_machine:
     b_use_const_desired_foot_pos: true
@@ -208,10 +208,10 @@ dcm_walking:
   percentage_settle: 0.9
   alpha_ds: 0.5
 
-  nominal_footwidth: 0.2425
+  nominal_footwidth: 0.2425 #0.2425
   nominal_forward_step: 0.1
   nominal_backward_step: -0.1
   nominal_turn_radians: 0.3
   nominal_strafe_distance: 0.05
-  n_steps: 3
+  n_steps: 4
   first_swing_leg: 1 ## 0: left leg ## 1: right leg

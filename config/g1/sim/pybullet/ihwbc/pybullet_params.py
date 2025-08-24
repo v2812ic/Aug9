@@ -3,9 +3,37 @@ import numpy as np
 
 class Config(object):
 
-    # Victor's params
+    # Water sampling
     v_water = 0.0
-    endSimulation = 208
+    h_water = 0.34
+    theta = np.pi
+    rho = 1000
+
+    initForce = 2 # sec
+
+
+    # Sections data
+    N_sample = 10
+    foot_params  = {'half_extents':(0.1,0.04,0.03),
+                    'color':(1,0,0,0.5),
+                    'pos_off':(0.01,0,0.01),
+                    'rot_off':(0,0,0)}
+    shin_params  = {'half_up':0.15,'half_dn':0.17,'radius':0.055,
+                    'color':(0,0,1,0.5),
+                    'pos_off':(0.007,0,0),
+                    'rot_off':(0,0,0.1)}
+    thigh_params = {'half_up':0.22, 'half_dn':0.1,'radius':0.055,
+                    'color':(0,7,0,0.5),
+                    'pos_off':(0.05,-0.01,0.15),
+                    'rot_off':(0,0.05,0)}
+    pelvis_params= {'half_up':0.05,'half_dn':0.07,'radius':0.07,
+                    'color':(1,0,1,0.5),
+                    'pos_off':(0,0,0),
+                    'rot_off':(0,0,0)}
+
+    # Simulation control
+    endSimulation = 7
+    plots = True
 
     # Observer
     observerActive = True
