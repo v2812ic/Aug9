@@ -123,7 +123,7 @@ void ContactTransitionStart::FirstVisit() {
           ctrl_arch_->dcm_tm_->GetDCMPlanner()
               ->GetInitialContactTransferTime() -
           ctrl_arch_->dcm_tm_->GetDCMPlanner()->GetNormalForceRampDownTime();
-
+      
       ctrl_arch_->dcm_tm_->GetDCMPlanner()->SaveSolution(
           std::to_string(sp_->planning_id_));
       sp_->planning_id_ += 1;

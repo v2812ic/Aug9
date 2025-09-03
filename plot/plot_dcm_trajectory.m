@@ -1,134 +1,250 @@
-%% Load data
-close all;
-clear;
-clc;
+%% Plot DCM / DCMdot / CoM / VRP (REF vs REAL) over overlapping time only
+close all; clear; clc;
 
-colors = dictionary(1, 'red', 2, 'magenta', 3, 'blue', 4, 'cyan');
+% Paths
+addpath("plot/yaml_tools");
+if exist("plot_foot.m","file")~=2 && exist("plot/plot_foot.m","file")==2
+    addpath("plot");
+end
 
-addpath("/tmp")
-addpath("plot/yaml_tools")
+%% Load latest YAML (references)
+dd = dir("experiment_data/*.yaml");
+assert(~isempty(dd), 'No YAML found in experiment_data/. Call SaveSolution() first.');
 
-d = dir("/tmp/draco_controller_data*.mat");
-[tmp, i] = max([d.datenum]);
-fprintf('loading %s \n', d(i).name)
-load(d(i).name)
+[~, i] = max([dd.datenum]);
+yaml_path = fullfile(dd(i).folder, dd(i).name);
+fprintf('loading %s\n', yaml_path);
 
-dd = dir("/tmp/draco_state_estimator_kf_data*.mat");
-[tmp, i] = max([dd.datenum]);
-fprintf('loading %s \n', dd(i).name)
-load(dd(i).name, 'joint_pos_act')
-load(dd(i).name, 'joint_vel_act')
-load(dd(i).name, 'icp_est')
+S = ReadYaml(yaml_path);
 
-ddd = dir("/tmp/draco_icp_data*.mat");
-[tmp, i] = max([ddd.datenum]);
-fprintf('loading %s \n', ddd(i).name)
-load(ddd(i).name, 'des_icp')
-% load(ddd(i).name, 'act_icp')
-load(ddd(i).name, 'local_des_icp')
-load(ddd(i).name, 'local_act_icp')
+% Temporal params
+initial_time = S.temporal_parameters.initial_time;
+final_time   = S.temporal_parameters.final_time;
+t_ds         = S.temporal_parameters.t_ds;
+t_ss         = S.temporal_parameters.t_ss;
+t_transfer   = S.temporal_parameters.t_transfer;
 
-disp('loading experiment_data/0.yaml')
-current_step = ReadYaml('experiment_data/0.yaml');
-initial_time = current_step.temporal_parameters.initial_time;
-final_time = current_step.temporal_parameters.final_time;
-time_step = current_step.temporal_parameters.time_step;
-t_ds = current_step.temporal_parameters.t_ds;
-t_ss = current_step.temporal_parameters.t_ss;
-t_transfer = current_step.temporal_parameters.t_transfer;
+% Contacts (current)
+curr_rfoot_contact_pos = cell2mat(S.contact.curr_right_foot.pos);
+curr_rfoot_contact_ori = cell2mat(S.contact.curr_right_foot.ori);
+curr_lfoot_contact_pos = cell2mat(S.contact.curr_left_foot.pos);
+curr_lfoot_contact_ori = cell2mat(S.contact.curr_left_foot.ori);
 
-curr_rfoot_contact_pos = cell2mat(current_step.contact.curr_right_foot.pos);
-curr_rfoot_contact_ori = cell2mat(current_step.contact.curr_right_foot.ori);
-curr_lfoot_contact_pos = cell2mat(current_step.contact.curr_left_foot.pos);
-curr_lfoot_contact_ori = cell2mat(current_step.contact.curr_left_foot.ori);
-rfoot_contact_pos = cell2mat(current_step.contact.right_foot.pos);
-rfoot_contact_ori = cell2mat(current_step.contact.right_foot.ori);
-lfoot_contact_pos = cell2mat(current_step.contact.left_foot.pos);
-lfoot_contact_ori = cell2mat(current_step.contact.left_foot.ori);
+% Planned footsteps (centers)
+rfoot_contact_pos = cell2mat(S.contact.right_foot.pos);
+lfoot_contact_pos = cell2mat(S.contact.left_foot.pos);
 
-t = cell2mat(current_step.reference.time);
-dcm_pos_ref = cell2mat(current_step.reference.dcm_pos);
-dcm_vel_ref = cell2mat(current_step.reference.dcm_vel);
-com_pos_ref = cell2mat(current_step.reference.com_pos);
-com_vel_ref = cell2mat(current_step.reference.com_vel);
-vrp_ref = cell2mat(current_step.reference.vrp);
+% References
+t_ref       = cell2mat(S.reference.time); t_ref = t_ref(:);
+dcm_pos_ref = cell2mat(S.reference.dcm_pos);
+dcm_vel_ref = cell2mat(S.reference.dcm_vel);
+com_pos_ref = cell2mat(S.reference.com_pos);
+com_vel_ref = cell2mat(S.reference.com_vel);
+vrp_ref     = cell2mat(S.reference.vrp); % ensure you DID NOT add +100 in C++
 
-%% get data at times of inteterest
-[~, initial_step_idx] = min(abs(time - initial_time));
+%% Load REAL trajectories if available
+has_real = false;
+ddr = dir("experiment_data/com_real_*.mat");
+if ~isempty(ddr)
+    [~, ir] = max([ddr.datenum]);
+    mat_path = fullfile(ddr(ir).folder, ddr(ir).name);
+    fprintf('loading reals %s\n', mat_path);
+    R = load(mat_path); % expects: t_act, com_pos_act, com_vel_act (and optionally xi_act, vrp_act, b_used)
 
-time_at_swing = initial_time + t_transfer + 1.5 * t_ds;
-time_at_touch_down = time_at_swing + t_ss;
+    assert(isfield(R,'t_act') && isfield(R,'com_pos_act') && isfield(R,'com_vel_act'), ...
+        'MAT must contain at least t_act, com_pos_act, com_vel_act');
 
-[~, first_step_idx] = min(abs(time - time_at_touch_down));
-[~, first_liftoff_idx] = min(abs(time - time_at_swing));
+    t_act       = R.t_act(:);
+    com_pos_act = R.com_pos_act;
+    com_vel_act = R.com_vel_act;
 
-landing_rfoot_pos = act_rf_pos(:, first_step_idx);
-landing_lfoot_pos = act_lf_pos(:, first_step_idx);
-liftoff_icp_pos_act = icp_est(:, first_liftoff_idx);
-liftoff_icp_pos_des = des_icp(:, first_liftoff_idx);
+    % LIPM parameter b
+    if isfield(R,'b_used')
+        b_used = R.b_used;
+    else
+        g = 9.81;
+        zc = mean(com_pos_act(:,3));
+        b_used = sqrt(max(zc,1e-3)/g);
+    end
 
-%% plot
+    % Real DCM (xi) and VRP
+    if isfield(R,'xi_act')
+        xi_act = R.xi_act;
+    else
+        xi_act = com_pos_act + b_used*com_vel_act;
+    end
 
-offset = 0.05;
-axis_tick_size = 10;
-axis_label_size = 14;
-axis_tick_color = '#434440';
-axis_label_color = '#373834';
-comref_linewidth = 2;
-comref_linecolor = "#D95319";       % orange
-dcmref_linewidth = 4;
-dcmref_linecolor = "#EDB120";       % dark yellow
-% dcmref_linecolor = "#FF5733";      % cornflowerblue
+    % xi_dot via gradient per component (robust against spacing issues)
+    if numel(t_act) >= 2
+        xidot_act = zeros(size(xi_act));
+        for k = 1:3
+            xidot_act(:,k) = gradient(xi_act(:,k), t_act);
+        end
+    else
+        xidot_act = zeros(size(xi_act));
+    end
 
-% DCM tracking 2-D plot
-figure
-p_com = plot(com_pos_ref(:, 1), com_pos_ref(:, 2), ...
-    'Color', comref_linecolor, 'LineWidth', comref_linewidth);
-hold on
-p_dcm = plot(dcm_pos_ref(:, 1), dcm_pos_ref(:, 2), ...
-    'Color', dcmref_linecolor, 'LineWidth', dcmref_linewidth);
+    if isfield(R,'vrp_act')
+        vrp_act = R.vrp_act;
+    else
+        vrp_act = xi_act - b_used * xidot_act;
+    end
 
-grid on
+    has_real = true;
+end
 
-% ICP during stepping time
-p_icp_est =  plot(icp_est(1, initial_step_idx:first_step_idx),...
-    icp_est(2, initial_step_idx:first_step_idx), 'c');
-p_icp_start = scatter(icp_est(1, initial_step_idx), icp_est(2, initial_step_idx), 'ms');
-p_icp_end = scatter(icp_est(1, first_step_idx), icp_est(2, first_step_idx), 'co');
+%% Optional: ICP from /tmp (kept as-is)
+has_icp = false;
+dd_kf = dir("/tmp/draco_state_estimator_kf_data*.mat");
+if ~isempty(dd_kf)
+    [~, ikf] = max([dd_kf.datenum]);
+    kf_path = fullfile(dd_kf(ikf).folder, dd_kf(ikf).name);
+    fprintf('loading %s\n', kf_path);
+    K = load(kf_path, 'icp_est');
+    if isfield(K,'icp_est')
+        icp_est = K.icp_est;
+        has_icp = true;
+    end
+end
 
-% ICP at swing foot liftoff
-p_icp_liftoff_act = scatter(liftoff_icp_pos_act(1), liftoff_icp_pos_act(2), 'c*');
-p_icp_liftoff_des = scatter(liftoff_icp_pos_des(1), liftoff_icp_pos_des(2), 'k*');
+%% Time window: OVERLAP ONLY
+if has_real
+    t0 = max(initial_time, min(t_act));
+    t1 = min(final_time,   max(t_act));
 
-% CMP during single support
+    mask_ref  = (t_ref >= t0) & (t_ref <= t1);
+    mask_real = (t_act >= t0) & (t_act <= t1);
 
+    % Crop references
+    t_ref_c        = t_ref(mask_ref);
+    dcm_pos_ref_c  = dcm_pos_ref(mask_ref,:);
+    dcm_vel_ref_c  = dcm_vel_ref(mask_ref,:);
+    com_pos_ref_c  = com_pos_ref(mask_ref,:);
+    com_vel_ref_c  = com_vel_ref(mask_ref,:);
+    vrp_ref_c      = vrp_ref(mask_ref,:);
 
-% plot feet position at beginning of step
-p_lfoot = scatter(act_lf_pos(1, initial_step_idx), ...
-    act_lf_pos(2, initial_step_idx), 'rs', 'filled', 'MarkerFaceAlpha', 0.2);
-p_rfoot = scatter(act_rf_pos(1, initial_step_idx), ...
-    act_rf_pos(2, initial_step_idx), 'bs', 'filled','MarkerFaceAlpha', 0.2);
+    % Crop reals
+    t_act_c    = t_act(mask_real);
+    com_pos_c  = com_pos_act(mask_real,:);
+    com_vel_c  = com_vel_act(mask_real,:);
+    xi_act_c   = xi_act(mask_real,:);
+    xidot_c    = xidot_act(mask_real,:);
+    vrp_act_c  = vrp_act(mask_real,:);
 
-% plot footstep plan
-p_lfoot_plan = scatter(curr_lfoot_contact_pos(1), ...
-    curr_lfoot_contact_pos(2), 'rs');
-p_rfoot_plan = scatter(curr_rfoot_contact_pos(1), ...
-    curr_rfoot_contact_pos(2), 'bs');
+else
+    % No reals -> keep full references (still respect initial_time if you want)
+    t0 = initial_time;
+    t1 = final_time;
+    mask_ref = (t_ref >= t0) & (t_ref <= t1);
 
-% planned and actual feet position at landing
+    t_ref_c       = t_ref(mask_ref);
+    dcm_pos_ref_c = dcm_pos_ref(mask_ref,:);
+    dcm_vel_ref_c = dcm_vel_ref(mask_ref,:);
+    com_pos_ref_c = com_pos_ref(mask_ref,:);
+    com_vel_ref_c = com_vel_ref(mask_ref,:);
+    vrp_ref_c     = vrp_ref(mask_ref,:);
+end
 
+%% XY: CoM / DCM / VRP (REF solid) + (REAL dashed) over overlap only
+figure('Name','XY: CoM / DCM / VRP (overlap only)'); hold on; grid on; axis equal;
+p1 = plot(com_pos_ref_c(:,1), com_pos_ref_c(:,2), 'Color',[0.85 0.33 0.10], 'LineWidth',2);      % CoM ref
+p2 = plot(dcm_pos_ref_c(:,1), dcm_pos_ref_c(:,2), 'Color',[0.93 0.69 0.13], 'LineWidth',2.5);    % DCM ref
+p3 = plot(vrp_ref_c(:,1),     vrp_ref_c(:,2),     'Color',[0.00 0.45 0.74], 'LineWidth',2);      % VRP ref
+if has_real
+    p1r = plot(com_pos_c(:,1), com_pos_c(:,2), '--', 'Color',[0.85 0.33 0.10], 'LineWidth',1.5);
+    p2r = plot(xi_act_c(:,1),  xi_act_c(:,2),  '--', 'Color',[0.10 0.10 0.10], 'LineWidth',1.5);
+    p3r = plot(vrp_act_c(:,1), vrp_act_c(:,2), '--', 'Color',[0.00 0.45 0.74], 'LineWidth',1.5);
+end
 
-% plot feet margins
-ax = gca;
-plot_foot(ax, curr_lfoot_contact_pos, curr_lfoot_contact_ori, colors(1))
-plot_foot(ax, curr_rfoot_contact_pos, curr_rfoot_contact_ori, colors(2))
+% Feet and planned steps (context)
+if exist('plot_foot','file')==2
+    plot_foot(gca, curr_lfoot_contact_pos, curr_lfoot_contact_ori, 'red');
+    plot_foot(gca, curr_rfoot_contact_pos, curr_rfoot_contact_ori, 'blue');
+else
+    plot(curr_lfoot_contact_pos(1), curr_lfoot_contact_pos(2),'rs','MarkerFaceColor','r');
+    plot(curr_rfoot_contact_pos(1), curr_rfoot_contact_pos(2),'bs','MarkerFaceColor','b');
+end
+if ~isempty(rfoot_contact_pos), plot(rfoot_contact_pos(:,1), rfoot_contact_pos(:,2), 'bo'); end
+if ~isempty(lfoot_contact_pos), plot(lfoot_contact_pos(:,1), lfoot_contact_pos(:,2), 'ro'); end
 
-legend([p_com, p_dcm, p_icp_est, p_icp_start, p_icp_end, ...
-    p_icp_liftoff_act, p_icp_liftoff_des, ...
-    p_lfoot, p_rfoot, p_lfoot_plan, p_rfoot_plan], ...
-    {'CoM ref','DCM ref', 'ICP est', 'ICP start', 'ICP end', ...
-    'ICP liftoff (act)', 'ICP liftoff (des)',...
-    'LF act', 'RF act', 'initLF', 'initRF'})
+if has_real
+    legend([p1 p2 p3 p1r p2r p3r], ...
+        {'CoM ref','DCM ref','VRP ref','CoM real','DCM real','VRP real'}, 'Location','best');
+else
+    legend([p1 p2 p3], {'CoM ref','DCM ref','VRP ref'}, 'Location','best');
+end
+xlabel('x [m]'); ylabel('y [m]');
+title(sprintf('XY trajectories (overlap %0.2f–%0.2f s)', t0, t1));
 
-xlabel('x (m)')
-ylabel('y (m)')
+%% Axis labels
+axis_names = {'x','y','z'};
+labs_pos   = {'x [m]','y [m]','z [m]'};
+labs_vel   = {'x [m/s]','y [m/s]','z [m/s]'};
+
+%% DCM vs time (overlap)
+figure('Name','DCM vs time (overlap only)');
+for k=1:3
+    subplot(3,1,k); hold on; grid on;
+    plot(t_ref_c, dcm_pos_ref_c(:,k), 'LineWidth',1.6);
+    if has_real
+        plot(t_act_c, xi_act_c(:,k), '--', 'Color',[0.85 0.33 0.10], 'LineWidth',1.2);
+    end
+    xlim([t0 t1]);
+    ylabel(labs_pos{k});
+    if k==1, title('DCM components (ref solid vs. real dashed)'); end
+    if k==3, xlabel('time [s]'); end
+    if has_real && k==1
+        legend('DCM ref','DCM real','Location','best');
+    end
+end
+
+%% DCMdot vs time (overlap)
+figure('Name','DCMdot vs time (overlap only)');
+for k=1:3
+    subplot(3,1,k); hold on; grid on;
+    plot(t_ref_c, dcm_vel_ref_c(:,k), 'LineWidth',1.6);
+    if has_real
+        plot(t_act_c, xidot_c(:,k), '--', 'Color',[0.85 0.33 0.10], 'LineWidth',1.2);
+    end
+    xlim([t0 t1]);
+    ylabel(labs_vel{k});
+    if k==1, title('DCMdot components (ref solid vs. real dashed)'); end
+    if k==3, xlabel('time [s]'); end
+    if has_real && k==1
+        legend('DCMdot ref','DCMdot real','Location','best');
+    end
+end
+
+%% CoM vs time (overlap)
+figure('Name','CoM vs time (overlap only)');
+for k=1:3
+    subplot(3,1,k); hold on; grid on;
+    plot(t_ref_c, com_pos_ref_c(:,k), 'LineWidth',1.6);
+    if has_real
+        plot(t_act_c, com_pos_c(:,k), '--', 'Color',[0.85 0.33 0.10], 'LineWidth',1.2);
+    end
+    xlim([t0 t1]);
+    ylabel(labs_pos{k});
+    if k==1, title('CoM components (ref solid vs. real dashed)'); end
+    if k==3, xlabel('time [s]'); end
+    if has_real && k==1
+        legend('CoM ref','CoM real','Location','best');
+    end
+end
+
+%% VRP vs time (overlap)
+figure('Name','VRP vs time (overlap only)');
+for k=1:3
+    subplot(3,1,k); hold on; grid on;
+    plot(t_ref_c, vrp_ref_c(:,k), 'LineWidth',1.6);
+    if has_real
+        plot(t_act_c, vrp_act_c(:,k), '--', 'Color',[0.85 0.33 0.10], 'LineWidth',1.2);
+    end
+    xlim([t0 t1]);
+    ylabel(labs_pos{k});
+    if k==1, title('VRP components (ref solid vs. real dashed)'); end
+    if k==3, xlabel('time [s]'); end
+    if has_real && k==1
+        legend('VRP ref','VRP real','Location','best');
+    end
+end

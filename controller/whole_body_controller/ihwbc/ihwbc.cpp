@@ -1,5 +1,6 @@
 #include "controller/whole_body_controller/ihwbc/ihwbc.hpp"
 #include "controller/whole_body_controller/contact.hpp"
+
 #include "controller/whole_body_controller/force_task.hpp"
 #include "controller/whole_body_controller/internal_constraint.hpp"
 #include "controller/whole_body_controller/task.hpp"
@@ -22,6 +23,8 @@ void IHWBC::Solve(const std::unordered_map<std::string, Task *> &task_map,
                       &internal_constraint_map,
                   std::map<std::string, ForceTask *> &force_task_map,
                   Eigen::VectorXd &qddot_cmd, Eigen::VectorXd &trq_cmd) {
+
+  bool kPrint_ = ((iter_++ % print_every_) == 0);
 
   assert(task_map.size() > 0);
   b_contact_ = contact_map.size() > 0 ? true : false;
@@ -52,6 +55,10 @@ void IHWBC::Solve(const std::unordered_map<std::string, Task *> &task_map,
 
     // Debug Task
     // task_ptr->Debug();
+
+    if (kPrint_){
+      //std::cout << "[IHWBC] weight task \"" << task_str << "\": " << jt.transpose() * weight_mat * jt << " | " << (jtdot_qdot - des_xddot).transpose() * weight_mat * jt << std::endl;
+    }
 
     cost_t_mat += jt.transpose() * weight_mat * jt;
     cost_t_vec += (jtdot_qdot - des_xddot).transpose() * weight_mat * jt;
@@ -472,6 +479,47 @@ void IHWBC::Solve(const std::unordered_map<std::string, Task *> &task_map,
   for (const auto &kv : force_task_map) {
     kv.second->UpdateCmd(rf_sol_.segment(i, dim_contact_ / 2));
     i += dim_contact_ / 2;
+  }
+
+  if (num_ineq_const_ > 0) {
+    Eigen::VectorXd x_full(num_qdot_ + dim_contact_);
+    x_full << qddot_sol_, rf_sol_;
+
+    // CI^T x + ci0 >= 0  con  CI = ineq_mat^T, ci0 = ineq_vec
+    Eigen::VectorXd left  = ineq_mat * x_full; // a_i^T x
+    Eigen::VectorXd right = ineq_vec;                      // -b_i
+    Eigen::VectorXd slack = left + right;                   // = a_i^T x + b_i  (>= 0 ideal)
+
+    int nJ = (b_trq_limit_ ? (num_qdot_ - num_floating_) : 0);
+    int trq_rows = (b_trq_limit_ ? 2 * nJ : 0);
+    int contact_rows = (b_contact_ ? dim_cone_constraint_ : 0);
+
+
+
+    bool printed_ = false;
+    
+    for (int i = 0; i < slack.size(); ++i) {
+    
+      std::string tag = "ineq_row[" + std::to_string(i) + "]";
+      if (b_trq_limit_ && i < trq_rows) {
+        if (i < nJ)  tag = "tau_lower[j=" + std::to_string(i) + "]";
+        
+        else         tag = "tau_upper[j=" + std::to_string(i - nJ) + "]";
+        
+      } else if (b_contact_ && i >= trq_rows && i < trq_rows + contact_rows) {
+        tag = "contact_cone[row=" + std::to_string(i - trq_rows) + "]";
+        
+      }
+
+      if (slack[i] < 1e-4) {
+        std::cout << "[IHWBC][WARNING-CLOSE TO LIMIT] " << tag
+                  << "  slack=" << slack[i] << std::endl;
+                  printed_ = true;
+      } 
+    }
+    if (printed_){
+        std::cout << "==================="<< std::endl;
+    }
   }
 }
 

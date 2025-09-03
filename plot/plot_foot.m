@@ -2,10 +2,10 @@ function plot_foot(ax, pos, ori, color)
 %PLOT_FOOT Plots outline of physical foot and foot dimensions used by
 %controller
 
-foot_half_len = 0.11;
-foot_half_wid = 0.04;
-foot_half_len_ctrl = 0.08;
-foot_half_wid_ctrl = 0.03;
+foot_half_len = 0.085;
+foot_half_wid = 0.025;
+foot_half_len_ctrl = 0.07;
+foot_half_wid_ctrl = 0.02;
 
 rmat = quat2rotm(ori);
 [xx, yy] = meshgrid(linspace(-foot_half_len, foot_half_len, 2), ...
@@ -16,7 +16,9 @@ rmat = quat2rotm(ori);
 stack_xx_yy = cat(3, xx, yy);
 stack_xx_yy = permute(stack_xx_yy, [3 2 1]);
 stack_xx_yy = pagetranspose(stack_xx_yy);
-out = einsum('ji, mni->jmn', rmat(1:2, 1:2), stack_xx_yy);
+A = rmat(1:2,1:2);        % j×i  (2×2)
+B = stack_xx_yy;          % m×n×i (i=2)
+out = pagemtimes(A, permute(B, [3 1 2]));
 xx = out(:, :, 1);
 yy = out(:, :, 2);
 xx = xx + pos(1);
@@ -25,15 +27,19 @@ yy = yy + pos(2);
 stack_xx_yy_ctrl = cat(3, xx_ctrl, yy_ctrl);
 stack_xx_yy_ctrl = permute(stack_xx_yy_ctrl, [3 2 1]);
 stack_xx_yy_ctrl = pagetranspose(stack_xx_yy_ctrl);
-out = einsum('ji, mni->jmn', rmat(1:2, 1:2), stack_xx_yy_ctrl);
+A = rmat(1:2,1:2);        % j×i  (2×2)
+B = stack_xx_yy_ctrl;          % m×n×i (i=2)
+
+% einsum('ji,mni->jmn'):
+out = pagemtimes(A, permute(B, [3 1 2]));
 xx_ctrl = out(:, :, 1);
 yy_ctrl = out(:, :, 2);
-xx_ctrl = xx_ctrl + pos(1);
-yy_ctrl = yy_ctrl + pos(2);
+%xx_ctrl = xx_ctrl + pos(1);
+%yy_ctrl = yy_ctrl + pos(2);
 
 plot(ax, xx, yy, color, 'LineWidth', 1.5)
 plot(ax, xx', yy', color, 'LineWidth', 1.5)
-plot(ax, xx_ctrl, yy_ctrl, color, 'LineWidth', 1.5, 'LineStyle','--')
-plot(ax, xx_ctrl',yy_ctrl', color, 'LineWidth', 1.5, 'LineStyle','--')
+%plot(ax, xx_ctrl, yy_ctrl, color, 'LineWidth', 1.5, 'LineStyle','--')
+%plot(ax, xx_ctrl',yy_ctrl', color, 'LineWidth', 1.5, 'LineStyle','--')
 
 end

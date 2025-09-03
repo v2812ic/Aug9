@@ -4,10 +4,14 @@ import numpy as np
 class Config(object):
 
     # Water sampling
-    v_water = 0.0
+    v_water = 2
     h_water = 0.34
     theta = np.pi
     rho = 1000
+    nu = 1e-6
+
+    random_amplitude = 0.1
+    random_frequency = 0.5
 
     initForce = 2 # sec
 
@@ -32,23 +36,25 @@ class Config(object):
                     'rot_off':(0,0,0)}
 
     # Simulation control
-    endSimulation = 7
+    endSimulation = 100
     plots = True
 
     # Observer
     observerActive = True
-    n_filter_observer = 2 
-    gain_observer = 50
+    n_filter_observer = 2
+    gain_observer = 60
     InitObservations = 1 
 
-    solver_frequency = 100
+    solver_frequency = 1
     rglrztn_forces = 0.1
-    pinv_forces = False
+    pinv_forces = True
     printForces = False
     plotTorques = True
     left_ids = []
     right_ids = []
     pelvis_ids = [-1]
+
+    smooth_forces = 0.1 # 0 a 1, hace que la aplicación de fuerzas no sea instantánea
 
     link_idx_vec = [-1] # Este man tiene que coincidir cn la segmentacion que se haga de left-right-pelvis
 

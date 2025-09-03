@@ -100,4 +100,9 @@ protected:
   /// QP inequality constraint.
   GolDIdnani::GMatr<double> CI_;
   GolDIdnani::GVect<double> ci0_;
+
+private:
+
+  int iter_{0};
+  int print_every_{100};
 };

@@ -236,7 +236,7 @@ protected:
                 const int upper_bound) const;
 
 private:
-  double F_x_ = -0;
+  double F_x_ = -10;
   double M_y_ = 0;
   double F_x_plus_torque_ = F_x_ + M_y_/z_vrp_; 
   double offset_F_ = -b_ * b_ * F_x_plus_torque_ /mass_ ;

@@ -43,6 +43,7 @@ from g1_files.forces_to_world import group_tripod
 
 # ====== Plots (se generan en Ctrl+C) ======
 from g1_files.plots import make_plots
+from g1_files.comLogger import ComLogger
 
 # ===== Aplicación de fuerzas externas transitorias =====
 from g1_files.external_forces import apply_external_forces # test
@@ -155,9 +156,7 @@ def main():
         if link_name in link_id_dict:
             pb.changeDynamics(g1_humanoid, link_id_dict[link_name],
                               mass=0.0, localInertiaDiagonal=[0.0, 0.0, 0.0])
-            
-    
-
+                               
     # ====== Init de variables ======
     v_prev = None
     tau_ext = np.zeros(model.nv)
@@ -165,11 +164,11 @@ def main():
     f_ext = None
 
     # == Objeto de agua ==
-    water = Water()
+    #water = Water()
 
     # == Lista de secciones del humanoide donde aplicar la fuerza ==
-    pressureInterpolator = PressureInterpolator()
-    sections = SectionManager(link_id_dict, Config.shin_params, Config.thigh_params, Config.pelvis_params, pressureInterpolator)
+    #pressureInterpolator = PressureInterpolator()
+    #sections = SectionManager(link_id_dict, Config.shin_params, Config.thigh_params, Config.pelvis_params, pressureInterpolator)
 
     # ====== Logs configurables ======
     time_log = []
@@ -187,6 +186,12 @@ def main():
     ori_left_log = []
     pos_right_log = []
     ori_right_log = []
+
+    comlogger = ComLogger(outdir="experiment_data")
+
+    com_pos_act_log = []
+    com_vel_act_log = []
+    com_acc_act_log = []
 
     # ====== Finalización/plots (para Ctrl+C) ======
     def finalize():
@@ -209,6 +214,12 @@ def main():
                     f_D_r_log = f_D_r_log 
                 )
                 plotTorques()
+
+                comlogger.dump(
+                    time=time_log,
+                    com_pos=com_pos_act_log,
+                    com_vel=com_vel_act_log,
+                )
             
         except Exception as e:
             print(f"[finalize] Error generando plots: {e}")
@@ -294,7 +305,9 @@ def main():
         # --- Observador ---
         
         q_pin, v_pin, a_pin = observe(g1_humanoid, model, bullet_to_pino, dt, v_prev)
-        com_W = pin.centerOfMass(model, data, q_pin)
+        pin.centerOfMass(model, data, q_pin)
+        com_W  = data.com[0].copy()
+        comd_W = data.vcom[0].copy()
 
         tau_c, tau_cf, cf_left, cf_right = get_contact_wrenches(g1_humanoid, _ground, model, data, q_pin)
         v_prev = v_pin.copy()
@@ -307,7 +320,7 @@ def main():
         if not test_ and count*dt > 4:
             test_ = True
             take_action_4()
-
+            print("Start here")
 
         # --- Solver de fuerzas en las piernas
         if not count % Config.solver_frequency:
@@ -324,15 +337,18 @@ def main():
             rpc_g1_interface.set_external_force(f_ext)
 
         # --- Aplicacion de fuerzas ---
-        water.update_params()
-        # apply_external_forces(g1_humanoid, count*dt) # si aplica
+        #water.update_params()
 
         f_A_r, t_A_r, f_D_r, t_D_r = np.zeros(3), np.zeros(3), np.zeros(3), np.zeros(3)
+        f_real_ext_test = np.zeros(6)
 
         if count * dt > Config.initForce:
-            f_A_r, t_A_r = sections.apply_archimedes(g1_humanoid, com_W, water)
-            f_D_r, t_D_r = sections.apply_drag(g1_humanoid, com_W, water)
-            
+            #f_A_r, t_A_r = sections.apply_archimedes(g1_humanoid, com_W, count*dt, water)
+            #f_D_r, t_D_r = sections.apply_drag(g1_humanoid, com_W, count*dt, water)
+            f_real_ext_test[:3] = apply_external_forces(g1_humanoid, count*dt) # si aplica
+
+            pass
+
         # Informacion varia de la posicion y orientacion del pie
         pos_left, ori_left = pb.getLinkState(g1_humanoid, 6)[0], pb.getLinkState(g1_humanoid, 6)[1]
         pos_right, ori_right = pb.getLinkState(g1_humanoid, 13)[0], pb.getLinkState(g1_humanoid, 13)[1]
@@ -347,7 +363,8 @@ def main():
 
         F_arch = np.hstack((np.array(f_A_r), np.array(t_A_r)))
         F_drag = np.hstack((np.array(f_D_r), np.array(t_D_r)))
-        f_real_log.append(F_arch + F_drag)
+        #f_real_log.append(F_arch + F_drag)
+        f_real_log.append(f_real_ext_test)
         f_D_r_log.append(F_drag)
         f_A_r_log.append(F_arch)
         
@@ -355,6 +372,9 @@ def main():
         ori_left_log.append(ori_left)
         pos_right_log.append(pos_right)
         ori_right_log.append(ori_right)
+
+        com_pos_act_log.append(com_W)
+        com_vel_act_log.append(comd_W)
 
         # --- Step ---
         pb.stepSimulation()

@@ -161,6 +161,7 @@ bool DCMTrajectoryManager::Initialize(const double t_walk_start,
   dcm_planner_->InitializeFootStepsVrp(foot_step_preview_list_, init_left_foot_,
                                        init_right_foot_, init_dcm_pos,
                                        init_dcm_vel);
+  dcm_planner_->SaveSolution("0");
   return true;
 }
 
