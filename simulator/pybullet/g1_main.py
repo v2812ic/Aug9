@@ -328,6 +328,8 @@ def main():
             #print("globals: ", f_ext_local)
             f_ext = group_tripod(f_ext_local, g1_humanoid, Config.link_idx_vec, Config.left_ids, Config.right_ids, Config.pelvis_ids, ref_W = com_W)
 
+            if Config.onlyForce:
+                f_ext = f_ext.sum(axis = 0)
            
             rpc_g1_interface.set_external_force(f_ext)
                 

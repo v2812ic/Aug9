@@ -170,9 +170,21 @@ void DCMTrajectoryManager::UpdateDesired(const double current_time) {
 
   // Eigen::Vector3d des_dcm_pos = dcm_planner_->GetRefDCM(current_time);
   // Eigen::Vector3d des_dcm_vel = dcm_planner_->GetRefDCMVel(current_time);
+  
   Eigen::Vector3d des_com_pos = dcm_planner_->GetRefCoMPos(current_time);
   Eigen::Vector3d des_com_vel = dcm_planner_->GetRefCoMVel(current_time);
   Eigen::Vector3d des_com_acc = dcm_planner_->GetRefCoMAcc(current_time);
+
+  // Calculo del offset
+
+  Eigen::Vector3d f_ext_pure = Eigen::Vector3d::Zero();
+
+  if ((f_ext_.rows() == 1 or f_ext_.cols() == 1) && f_ext_.size() >= 3) {
+    f_ext_pure = Eigen::Map<const Eigen::VectorXd>(f_ext_.data(), f_ext_.size()).head<3>();
+  }
+
+  des_com_pos -= dt_*b_/mass_ * f_ext_pure;
+  des_com_vel -= b_/mass_ * f_ext_pure;
 
   Eigen::Quaterniond des_ori_quat = Eigen::Quaterniond::Identity();
   Eigen::Vector3d des_ang_vel = Eigen::Vector3d::Zero();

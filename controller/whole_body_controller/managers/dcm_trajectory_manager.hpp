@@ -95,6 +95,10 @@ public:
   // setter (for operator UI)
   int *GetNumSteps();
 
+  void SetExternalForce(const Eigen::MatrixXd &f_ext) {
+    f_ext_ = f_ext;
+  }
+
 private:
   DCMPlanner *dcm_planner_;
   Task *com_xy_task_;
@@ -132,4 +136,10 @@ private:
   void _UpdateFootStepsPreviewList(const int max_foot_steps_preview);
   void _ResetIndexAndClearFootSteps();
   void _AlternateLeg();
+
+  Eigen::MatrixXd f_ext_;
+
+  double mass_{35.11};
+  double b_{0.25};
+  double dt_{0.00125};
 };

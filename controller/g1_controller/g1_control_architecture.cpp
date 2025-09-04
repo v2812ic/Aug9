@@ -75,6 +75,7 @@ G1ControlArchitecture::G1ControlArchitecture(PinocchioRobotSystem *robot,
       tci_container_->task_map_["torso_ori_task"], robot_,
       g1_link::l_foot_contact, g1_link::r_foot_contact,
       sp_->b_use_base_height_);
+  controller_-> BindDCM(dcm_tm_);
   dcm_tm_->InitializeParameters(cfg["dcm_walking"]);
 
   lf_SE3_tm_ = new EndEffectorTrajectoryManager(

@@ -48,10 +48,13 @@ public:
     f_ext_ = f_ext;
   }
 
-  private:
+private:
 
   Eigen::VectorXd tau_ext_;
   Eigen::MatrixXd f_ext_;
+
+  int iter_{0};
+  int print_every_{100};
 
 
 protected:
@@ -100,9 +103,4 @@ protected:
   /// QP inequality constraint.
   GolDIdnani::GMatr<double> CI_;
   GolDIdnani::GVect<double> ci0_;
-
-private:
-
-  int iter_{0};
-  int print_every_{100};
 };

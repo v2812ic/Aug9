@@ -14,7 +14,7 @@ class Config(object):
     random_frequency = 0.5
 
     initForce = 2 # sec
-
+    onlyForce = True
 
     # Sections data
     N_sample = 10
