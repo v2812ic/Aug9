@@ -145,6 +145,23 @@ void G1InterruptHandler::Process() {
       } else
         std::cout << "Wait Until Balance State" << std::endl;
     }
+
+    if (b_button_zero){
+
+      if (ctrl_arch_->locostate() == g1_states::kDoubleSupportBalance) {
+        std::cout << "-----------------------------------" << std::endl;
+        std::cout << "button 0 pressed: Lifting Foot" << std::endl;
+        std::cout << "-----------------------------------" << std::endl;
+
+        static_cast<DoubleSupportBalance *>(
+            ctrl_arch_->locomotion_state_machine_container()
+                [g1_states::kDoubleSupportBalance])
+            ->LiftFoot();
+
+      } else
+        std::cout << "Wait Until Balance State" << std::endl;
+    }
+
   } else if (ctrl_arch_wbic_) {
     //======================================================================
     // WBIC

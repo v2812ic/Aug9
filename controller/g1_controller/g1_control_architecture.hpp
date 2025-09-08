@@ -19,6 +19,7 @@ constexpr int kRFContactTransitionEnd = 9;
 constexpr int kRFSingleSupportSwing = 10;
 // constexpr int kMPCLocomotion = 11;
 constexpr int kTeleopManipulation = 20;
+constexpr int LiftFoot = 30;
 } // namespace g1_states
 
 class G1Controller;
@@ -66,8 +67,6 @@ public:
 
   void SetExternalTorque(const Eigen::VectorXd &tau_ext) override;
   void SetExternalForce(const Eigen::MatrixXd &f_ext) override;
-  
-
 private:
   G1Controller *controller_;
   G1StateProvider *sp_;

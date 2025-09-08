@@ -59,3 +59,5 @@ def handle_keyboard_events(keys, rpc_g1_interface, pybullet_util):
         rpc_g1_interface.interrupt_.PressEight()
     elif pybullet_util.is_key_triggered(keys, "9"):
         rpc_g1_interface.interrupt_.PressNine()
+    elif pybullet_util.is_key_triggered(keys, "0"):
+        rpc_g1_interface.interrupt_.PressZero()

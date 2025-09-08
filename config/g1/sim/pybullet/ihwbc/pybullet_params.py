@@ -49,7 +49,7 @@ class Config(object):
     rglrztn_forces = 0.1
     pinv_forces = True
     printForces = False
-    plotTorques = True
+    plotTorques = False
     left_ids = []
     right_ids = []
     pelvis_ids = [-1]

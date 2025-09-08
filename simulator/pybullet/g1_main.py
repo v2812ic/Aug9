@@ -88,6 +88,7 @@ def main():
     _ground = pb.loadURDF(cwd + "/robot_model/ground/plane.urdf", useFixedBase=1)
     pb.configureDebugVisualizer(pb.COV_ENABLE_RENDERING, 1)
 
+    fixed = False
     # ====== Lateral friction coefficients ======
 
     pb.changeDynamics(g1_humanoid, 6, lateralFriction = mu_) #pie izquierdo
@@ -321,6 +322,24 @@ def main():
             test_ = True
             take_action_4()
             print("Start here")
+
+            '''
+            if not fixed:
+                # ====== Fijar pie izquierdo al suelo ======
+                pb.createConstraint(
+                    parentBodyUniqueId=g1_humanoid,
+                    parentLinkIndex=6,
+                    childBodyUniqueId=-1,  # -1 significa el "mundo" o base estática
+                    childLinkIndex=-1,
+                    jointType=pb.JOINT_FIXED,  # El tipo de unión es "fija"
+                    jointAxis=[0, 0, 0],
+                    parentFramePosition=[0, 0, 0], # El punto de anclaje en el eslabón (su origen)
+                    childFramePosition=pb.getLinkState(g1_humanoid, 6)[0], # El punto de anclaje en el mundo
+                    parentFrameOrientation=[0, 0, 0, 1], # Orientación del anclaje en el eslabón
+                    childFrameOrientation=pb.getLinkState(g1_humanoid, 6)[1] # Orientación del anclaje en el mundo
+                )
+            fixed = True
+            '''
 
         # --- Solver de fuerzas en las piernas
         if not count % Config.solver_frequency:

@@ -138,19 +138,19 @@ wbc:
       kd : [20., 20., 20.]
 
     foot_pos_task:
-      weight : [1000., 1000., 1000.]
-      weight_at_swing : [2000., 2000., 2000.]
-      kp : [300., 300., 300.]
-      kd : [30., 30., 30.]
+      weight : [2000., 2000., 2000.]
+      weight_at_swing : [5000., 5000., 5000.]
+      kp : [200., 200., 200.]
+      kd : [10., 10., 10.]
 
     foot_ori_task:
       weight : [2000., 2000., 2000.]
-      weight_at_swing : [4000., 4000., 4000.]
-      kp : [120., 120., 120.]
+      weight_at_swing : [5000., 5000., 5000.]
+      kp : [200., 200., 200.]
       kd : [10., 10., 10.]
 
     foot_rf_task:
-      weight : [0., 0., 0., 1e-8, 1e-8, 5e-8] ## trq, force order
+      weight : [0., 0., 0., 1e-8, 1e-8, 1e-8] ## trq, force order
 
   contact:
     max_rf_z: 600.
@@ -199,6 +199,15 @@ state_machine:
     teleop_manipulation:
       transition_duration: 0.3
       moving_duration: 0.05
+
+    lifting_foot:
+      foot_offset: [0.0, 0.0, 0.05]
+      com_xy_offset: [0., 0.01]
+      lift_foot: 0
+      time_to_execute: 10
+      sway_time: 5
+      hold_foot_up: true
+      swing_height: 0.05
 
 dcm_walking:
 

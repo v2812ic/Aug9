@@ -498,7 +498,7 @@ void IHWBC::Solve(const std::unordered_map<std::string, Task *> &task_map,
 
     bool printed_ = false;
     
-    
+    {/*
     for (int i = 0; i < slack.size(); ++i) {
     
       std::string tag = "ineq_row[" + std::to_string(i) + "]";
@@ -521,7 +521,7 @@ void IHWBC::Solve(const std::unordered_map<std::string, Task *> &task_map,
     if (printed_){
         std::cout << "==================="<< std::endl;
     }
-    
+    */}
   }
 }
 
