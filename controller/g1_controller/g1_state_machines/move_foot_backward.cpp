@@ -1,4 +1,4 @@
-#include "controller/g1_controller/g1_state_machines/lift_foot.hpp"
+#include "controller/g1_controller/g1_state_machines/move_foot_backward.hpp"
 #include "controller/g1_controller/g1_control_architecture.hpp"
 #include "controller/g1_controller/g1_definition.hpp"
 #include "controller/g1_controller/g1_state_provider.hpp"
@@ -13,51 +13,36 @@
 #include "controller/whole_body_controller/managers/task_hierarchy_manager.hpp"
 #include <cmath>
 
-// --- FUNCIÓN AUXILIAR PARA APLANAR LA ORIENTACIÓN DEL PIE ---
-// Devuelve una pose con la misma posición pero con orientación neutra (horizontal).
-namespace {
-Eigen::Isometry3d MakeHorizontal(const Eigen::Isometry3d& iso) {
-    Eigen::Isometry3d new_iso = Eigen::Isometry3d::Identity();
-    new_iso.translation() = iso.translation();
-    return new_iso;
-}
-}
-
-LiftFoot::LiftFoot(const StateId state_id,
+MoveFootBackward::MoveFootBackward(const StateId state_id,
                                            PinocchioRobotSystem *robot,
                                            G1ControlArchitecture *ctrl_arch)
     : StateMachine(state_id, robot), ctrl_arch_(ctrl_arch) {
-  util::PrettyConstructor(2, "Lifting Foot (Stable Version)");
+  util::PrettyConstructor(2, "MovingFootBackward");
   nominal_lfoot_iso_.setIdentity();
   nominal_rfoot_iso_.setIdentity();
   sp_ = G1StateProvider::GetStateProvider();
 }
 
-void LiftFoot::FirstVisit() {
-  std::cout << "g1_states: Lifting Foot" << std::endl;
+void MoveFootBackward::FirstVisit() {
+  std::cout << "g1_states: Moving Foot Backward" << std::endl;
   state_machine_start_time_ = sp_->current_time_;
-  assert(time_to_execute_> swing_time_ + sway_time_ && "Error: time_to_execute_ must be greater than swing_time_ + sway_time_");
-  end_time_ = state_machine_start_time_ + time_to_execute_;
-  swing_time_ = time_to_execute_ - sway_time_;
+  
+  end_time_ = state_machine_start_time_ + 2*swing_semitime_;
 
   swing_is_left_ = (lift_foot_ == 0);
   if (swing_is_left_){
-    sp_->b_lf_contact_ = false;
-    sp_->b_rf_contact_ = true;
     sp_->b_swing_leg_ = end_effector::LFoot;
   } else {
-    sp_->b_lf_contact_ = true;
-    sp_->b_rf_contact_ = false;
     sp_->b_swing_leg_ = end_effector::RFoot;
   }
 
-  auto com_xy_task = ctrl_arch_->tci_container_->task_map_["com_xy_task"];
-  com_xy_ini = com_xy_task->DesiredPos();
+  // Ya esta hecho de la anterior tarea, no lo tocamos
+  //auto com_xy_task = ctrl_arch_->tci_container_->task_map_["com_xy_task"];
+  //com_xy_ini = com_xy_task->DesiredPos();
   
+  {/*
   if (swing_is_left_) {
     Eigen::Isometry3d stance_foot_iso = robot_->GetLinkIsometry(g1_link::r_foot_contact);
-    com_xy_target = stance_foot_iso.translation().head<2>();
-    // Incluir rampa de fuerza
     ctrl_arch_->lf_pos_hm_->InitializeRampToMin(sway_time_);
     ctrl_arch_->lf_ori_hm_->InitializeRampToMin(sway_time_);
     ctrl_arch_->lf_max_normal_froce_tm_->InitializeRampToMin(sway_time_);
@@ -79,45 +64,53 @@ void LiftFoot::FirstVisit() {
     sp_->b_rf_contact_ = false; // ojito 
 
   }
+    */} // Todo esto ya está hecho de la otra tarea
   //com_xy_target = com_xy_ini;
-  com_xy_target += com_offset_;
+  //com_xy_target += com_offset_;
 
   if (swing_is_left_) {
-    Eigen::Isometry3d start_iso = MakeHorizontal(robot_->GetLinkIsometry(g1_link::l_foot_contact));
+    Eigen::Isometry3d start_iso = robot_->GetLinkIsometry(g1_link::l_foot_contact);
     Eigen::Isometry3d final_iso = start_iso;
-    final_iso.translation() += foot_offset_;
-    const double apex_z = start_iso.translation().z() + swing_height_;
+    final_iso.translation()= final_iso.translation() - foot_init_pos_swing_offset_ + foot_end_pos_swing_offset_;
+ 
+    const double apex_z = start_iso.translation().z();
 
-    ctrl_arch_->lf_SE3_tm_->InitializeSwingTrajectory(start_iso, final_iso, apex_z, swing_time_);
+    if (not first_time_) swing_semitime_ *= 2;
 
-    swing_fin_iso_ = final_iso;
+    ctrl_arch_->lf_SE3_tm_->InitializeSwingTrajectory(start_iso, final_iso, apex_z, swing_semitime_);
     nominal_rfoot_iso_ = robot_->GetLinkIsometry(g1_link::r_foot_contact);
+
   } else {
-    Eigen::Isometry3d start_iso = MakeHorizontal(robot_->GetLinkIsometry(g1_link::r_foot_contact));
+    Eigen::Isometry3d start_iso = robot_->GetLinkIsometry(g1_link::r_foot_contact);
     Eigen::Isometry3d final_iso = start_iso;
-    final_iso.translation() += foot_offset_;
-    const double apex_z = start_iso.translation().z() + swing_height_;
+    final_iso.translation() = final_iso.translation() - foot_init_pos_swing_offset_ + foot_end_pos_swing_offset_;
+ 
+    const double apex_z = start_iso.translation().z();
 
-    ctrl_arch_->rf_SE3_tm_->InitializeSwingTrajectory(start_iso, final_iso, apex_z, swing_time_);
+    if (not first_time_) swing_semitime_ *= 2;
 
-    swing_fin_iso_ = final_iso;
-    nominal_lfoot_iso_ = robot_->GetLinkIsometry(g1_link::l_foot_contact);
+    ctrl_arch_->lf_SE3_tm_->InitializeSwingTrajectory(start_iso, final_iso, apex_z, swing_semitime_);
+
+    nominal_rfoot_iso_ = robot_->GetLinkIsometry(g1_link::l_foot_contact);
+
   }
 }
 
-void LiftFoot::OneStep() {
+void MoveFootBackward::OneStep() {
   state_machine_time_ = sp_->current_time_ - state_machine_start_time_;
-  swing_ref_ = state_machine_time_ - sway_time_;
-  swing_ref_ = std::clamp(swing_ref_, 0.0, swing_time_);
+  swing_ref_ = state_machine_time_;
+  swing_ref_ = std::clamp(swing_ref_, 0.0, end_time_);
 
+{/*
   // 1) Interpolar CoM
   double s = util::SmoothPos(0, 1, sway_time_, state_machine_time_);
   s = std::clamp(s, 0.0, 1.0);
   Eigen::Vector2d com_xy_des = (1.0 - s) * com_xy_ini + s * com_xy_target;
   ctrl_arch_->tci_container_->task_map_["com_xy_task"]
       ->UpdateDesired(com_xy_des, Eigen::Vector2d::Zero(), Eigen::Vector2d::Zero());
+      */}// No hace falta porque el centro de masas se quiere que esté quietecito, sin actualizar, en esta tarea
 
-  // 2) Actualizar pies si cal
+  // 2) Actualizar pies si cal - cal
   if (swing_is_left_) {
     ctrl_arch_->lf_SE3_tm_->UpdateDesired(swing_ref_);
     ctrl_arch_->rf_SE3_tm_->UseNominal(nominal_rfoot_iso_);
@@ -126,15 +119,8 @@ void LiftFoot::OneStep() {
     ctrl_arch_->lf_SE3_tm_->UseNominal(nominal_lfoot_iso_);
   }
 
-  if (hold_foot_up_ && state_machine_time_ >= time_to_execute_) {
-    if (swing_is_left_) {
-      ctrl_arch_->lf_SE3_tm_->UseNominal(swing_fin_iso_);
-    } else {
-      ctrl_arch_->rf_SE3_tm_->UseNominal(swing_fin_iso_);
-    }
-  }
-
   // 3) Actualizar fuerzas de contanto
+  {/*
   if (swing_is_left_){
     ctrl_arch_->lf_max_normal_froce_tm_->UpdateRampToMin(state_machine_time_);
     ctrl_arch_->lf_pos_hm_->UpdateRampToMin(state_machine_time_);
@@ -151,38 +137,35 @@ void LiftFoot::OneStep() {
     ctrl_arch_->lf_pos_hm_->UpdateRampToMax(state_machine_time_);
     ctrl_arch_->lf_ori_hm_->UpdateRampToMax(state_machine_time_);
   }
+    */} // No hacen falta aqui
 }
 
-bool LiftFoot::EndOfState() { 
-  if (hold_foot_up_ and not swing_foot_) return false;
+bool MoveFootBackward::EndOfState() { 
   return (sp_->current_time_ >= end_time_ + wait_time_);
 }
 
-void LiftFoot::LastVisit() {
-  // no haga nada
-  // state_machine_time_ = 0.;
+void MoveFootBackward::LastVisit() {
+  // no haga nada y quito el flag de first_time
+  first_time_ = false;
+  state_machine_time_ = 0.;
 }
 
-StateId LiftFoot::GetNextState() {
+StateId MoveFootBackward::GetNextState() {
   if (swing_foot_)
     return g1_states::MoveFootForward;
-  
-  // return g1_states::Return to nominal, pero no lo he puesto
 }
 
-void LiftFoot::SetParameters(const YAML::Node &node) {
+void MoveFootBackward::SetParameters(const YAML::Node &node) {
   try {
-    util::ReadParameter(node["state_machine"]["lifting_foot"], "foot_offset", foot_offset_);
-    util::ReadParameter(node["state_machine"]["lifting_foot"], "com_xy_offset", com_offset_);
+    util::ReadParameter(node["state_machine"]["swaying_foot"], "swing_semitime", swing_semitime_);
+    util::ReadParameter(node["state_machine"]["swaying_foot"], "wait_time", wait_time_);
+    util::ReadParameter(node["state_machine"]["swaying_foot"], "foot_init_pos_swing_offset", foot_init_pos_swing_offset_);
+    util::ReadParameter(node["state_machine"]["swaying_foot"], "foot_end_pos_swing_offset", foot_end_pos_swing_offset_);
     util::ReadParameter(node["state_machine"]["lifting_foot"], "lift_foot", lift_foot_);
-    util::ReadParameter(node["state_machine"]["lifting_foot"], "time_to_execute", time_to_execute_);
-    util::ReadParameter(node["state_machine"]["lifting_foot"], "sway_time", sway_time_);
-    util::ReadParameter(node["state_machine"]["lifting_foot"], "hold_foot_up", hold_foot_up_);
-    util::ReadParameter(node["state_machine"]["lifting_foot"], "swing_height", swing_height_);
     util::ReadParameter(node["state_machine"]["lifting_foot"], "swing_foot", swing_foot_);
-    util::ReadParameter(node["state_machine"]["lifting_foot"], "wait_time", wait_time_);
+  }
 
-  } catch (std::runtime_error &e) {
+    catch (std::runtime_error &e) {
     std::cerr << "Error reading parameter [ " << e.what() << "] at file: ["
               << __FILE__ << "]" << std::endl;
     std::exit(EXIT_FAILURE);

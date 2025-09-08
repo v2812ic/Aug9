@@ -11,6 +11,8 @@
 #include "controller/g1_controller/g1_state_machines/initialize.hpp"
 #include "controller/g1_controller/g1_state_machines/single_support_swing.hpp"
 #include "controller/g1_controller/g1_state_machines/lift_foot.hpp"
+#include "controller/g1_controller/g1_state_machines/move_foot_forward.hpp"
+#include "controller/g1_controller/g1_state_machines/move_foot_backward.hpp"
 #include "controller/g1_controller/g1_state_provider.hpp"
 #include "controller/g1_controller/g1_tci_container.hpp"
 #include "controller/whole_body_controller/managers/dcm_trajectory_manager.hpp"
@@ -225,7 +227,18 @@ G1ControlArchitecture::G1ControlArchitecture(PinocchioRobotSystem *robot,
 
   locomotion_state_machine_container_[g1_states::LiftFoot] =
       new LiftFoot(g1_states::LiftFoot, robot_, this);
-  locomotion_state_machine_container_[g1_states::LiftFoot]->SetParameters(cfg);
+  locomotion_state_machine_container_[g1_states::LiftFoot]
+      ->SetParameters(cfg);
+
+  locomotion_state_machine_container_[g1_states::MoveFootForward] =
+      new MoveFootForward(g1_states::MoveFootForward, robot_, this);
+  locomotion_state_machine_container_[g1_states::MoveFootForward]
+      ->SetParameters(cfg);
+
+  locomotion_state_machine_container_[g1_states::MoveFootBackward] =
+      new MoveFootBackward(g1_states::MoveFootBackward, robot_, this);
+  locomotion_state_machine_container_[g1_states::MoveFootBackward]
+      ->SetParameters(cfg);
 
   locomotion_state_machine_container_[g1_states::kLFContactTransitionStart] =
       new ContactTransitionStart(g1_states::kLFContactTransitionStart,
@@ -302,6 +315,10 @@ G1ControlArchitecture::~G1ControlArchitecture() {
       [g1_states::kDoubleSupportSwaying];
   delete locomotion_state_machine_container_
       [g1_states::LiftFoot];
+  delete locomotion_state_machine_container_
+      [g1_states::MoveFootForward];
+  delete locomotion_state_machine_container_
+      [g1_states::MoveFootBackward];
   delete locomotion_state_machine_container_
       [g1_states::kLFContactTransitionStart];
   delete locomotion_state_machine_container_

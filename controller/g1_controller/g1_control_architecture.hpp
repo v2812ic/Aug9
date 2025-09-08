@@ -20,6 +20,8 @@ constexpr int kRFSingleSupportSwing = 10;
 // constexpr int kMPCLocomotion = 11;
 constexpr int kTeleopManipulation = 20;
 constexpr int LiftFoot = 30;
+constexpr int MoveFootForward = 31;
+constexpr int MoveFootBackward = 32;
 } // namespace g1_states
 
 class G1Controller;
