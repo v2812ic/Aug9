@@ -115,7 +115,7 @@ void ContactTransitionEnd::OneStep() {
 }
 
 bool ContactTransitionEnd::EndOfState() {
-  return state_machine_time_ > end_time_ ? true : false;
+  return state_machine_time_ > end_time_ ? true : false; // esto sobra no?
 }
 
 void ContactTransitionEnd::LastVisit() { state_machine_time_ = 0.; }

@@ -5,11 +5,11 @@ class PinocchioRobotSystem;
 class G1ControlArchitecture;
 class G1StateProvider;
 
-class LiftFoot : public StateMachine {
+class MoveFootForward : public StateMachine {
 public:
-  LiftFoot(const StateId state_id, PinocchioRobotSystem *robot,
+   MoveFootForward(const StateId state_id, PinocchioRobotSystem *robot,
                        G1ControlArchitecture *ctrl_arch);
-  ~LiftFoot() = default;
+  ~MoveFootForward() = default;
 
   void FirstVisit() override;
   void OneStep() override;
@@ -24,29 +24,20 @@ private:
   G1ControlArchitecture *ctrl_arch_;
   G1StateProvider *sp_;
 
-  // set nominal desired position/orientation (e.g., for zero acceleration cmd)
   Eigen::Isometry3d nominal_lfoot_iso_;
   Eigen::Isometry3d nominal_rfoot_iso_;
 
-  double time_to_execute_;
-  double sway_time_;
-  double swing_time_;
-
-  int lift_foot_;
-  Eigen::Vector3d foot_offset_;
-  Eigen::Vector2d com_offset_;
-  double swing_height_;
-  bool hold_foot_up_;
-
-  Eigen::Vector2d com_xy_ini;
-  Eigen::Vector2d com_xy_target;
-  bool swing_is_left_;
+  bool first_time_{true};
+  double swing_semitime_;
+  double wait_time_;
+  Eigen::Vector3d foot_init_pos_swing_offset_;
+  Eigen::Vector3d foot_end_pos_swing_offset_;
 
   double swing_ref_;
 
-  Eigen::Isometry3d swing_fin_iso_;
+  int swing_is_left_;
+  int lift_foot_;
 
   bool swing_foot_;
-
-  double wait_time_;
 };
+

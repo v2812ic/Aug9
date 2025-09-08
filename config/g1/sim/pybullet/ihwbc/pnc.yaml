@@ -204,10 +204,18 @@ state_machine:
       foot_offset: [0.0, 0.0, 0.05]
       com_xy_offset: [0., 0.01]
       lift_foot: 0
-      time_to_execute: 10
-      sway_time: 5
+      time_to_execute: 8
+      sway_time: 3
       hold_foot_up: true
       swing_height: 0.05
+      swing_foot: true
+      wait_time: 1
+
+    swaying_foot: 
+      swing_semitime: 2
+      wait_time: 0
+      foot_init_pos_swing_offset: [0.1, 0.0, 0.02]
+      foot_end_pos_swing_offset: [-0.1, 0.0, 0.02]
 
 dcm_walking:
 
