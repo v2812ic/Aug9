@@ -14,7 +14,7 @@ class Config(object):
     random_frequency = 0.5
 
     initForce = 2 # sec
-
+    onlyForce = True
 
     # Sections data
     N_sample = 10
@@ -49,7 +49,7 @@ class Config(object):
     rglrztn_forces = 0.1
     pinv_forces = True
     printForces = False
-    plotTorques = True
+    plotTorques = False
     left_ids = []
     right_ids = []
     pelvis_ids = [-1]

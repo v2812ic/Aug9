@@ -21,7 +21,7 @@ def apply_external_forces(robot, t):
     if t > 2:
 
         F = [-10, 0, 0]
-        pb.applyExternalForce(robot, -1, F, [0.0, 0.0, 0.0], pb.WORLD_FRAME)
+        pb.applyExternalForce(robot, 2, F, [0.0, 0.0, 0.0], pb.WORLD_FRAME)
     
     return F
 

@@ -16,6 +16,7 @@
 #include "controller/whole_body_controller/wbic/wbic.hpp"
 #include "util/clock.hpp"
 #include "util/interpolation.hpp"
+#include "controller/whole_body_controller/managers/dcm_trajectory_manager.hpp"
 
 #if B_USE_ZMQ
 #include "controller/g1_controller/g1_data_manager.hpp"
@@ -709,5 +710,7 @@ void G1Controller::SetExternalForce(const Eigen::MatrixXd& f_ext)
     if (wbic_) {                       // cuando usas WBIC
         wbic_->SetExternalForce(f_ext);
     }
+
+    if (dcm_trajectory_manager_) dcm_trajectory_manager_->SetExternalForce(f_ext);
 }
 

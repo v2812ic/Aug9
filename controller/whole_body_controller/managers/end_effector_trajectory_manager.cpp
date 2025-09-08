@@ -98,6 +98,8 @@ void EndEffectorTrajectoryManager::UpdateDesired(const double current_time) {
           ? pos_first_half_curve_->Evaluate(current_time)
           : pos_second_half_curve_->Evaluate(current_time - 0.5 * duration_);
 
+  std::cout << "des_pos: " << des_pos.transpose() << std::endl;
+
   Eigen::VectorXd des_vel =
       current_time < 0.5 * duration_
           ? pos_first_half_curve_->EvaluateFirstDerivative(current_time)

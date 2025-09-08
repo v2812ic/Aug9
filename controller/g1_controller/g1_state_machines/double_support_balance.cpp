@@ -10,7 +10,7 @@ DoubleSupportBalance::DoubleSupportBalance(const StateId state_id,
                                            PinocchioRobotSystem *robot,
                                            G1ControlArchitecture *ctrl_arch)
     : StateMachine(state_id, robot), ctrl_arch_(ctrl_arch),
-      b_com_swaying_(false), b_dcm_walking_(false), b_static_walking_(false) {
+      b_com_swaying_(false), b_dcm_walking_(false), b_static_walking_(false), b_lift_foot_(false){
   util::PrettyConstructor(2, "DoubleSupportBalance");
 
   sp_ = G1StateProvider::GetStateProvider();
@@ -26,6 +26,7 @@ void DoubleSupportBalance::FirstVisit() {
   b_com_swaying_ = false;
   b_dcm_walking_ = false;
   b_static_walking_ = false;
+  b_lift_foot_ = false;
 
   // set current foot position as nominal (desired) for rest of this state
   nominal_lfoot_iso_ = robot_->GetLinkIsometry(g1_link::l_foot_contact);
@@ -48,7 +49,7 @@ void DoubleSupportBalance::OneStep() {
 }
 
 bool DoubleSupportBalance::EndOfState() {
-  if (b_com_swaying_ || b_static_walking_)
+  if (b_com_swaying_ || b_static_walking_ || b_lift_foot_)
     return true;
 
   if (b_dcm_walking_ && ctrl_arch_->dcm_tm_->GetFootStepList().size() > 0 &&
@@ -77,6 +78,9 @@ void DoubleSupportBalance::LastVisit() {
 StateId DoubleSupportBalance::GetNextState() {
   if (b_com_swaying_)
     return g1_states::kDoubleSupportSwaying;
+
+  if (b_lift_foot_)
+    return g1_states::LiftFoot;
 
   if (b_dcm_walking_) {
     if (ctrl_arch_->dcm_tm_->GetSwingLeg() == end_effector::LFoot) {

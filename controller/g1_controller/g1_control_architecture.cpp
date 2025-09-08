@@ -10,6 +10,7 @@
 #include "controller/g1_controller/g1_state_machines/double_support_swaying.hpp"
 #include "controller/g1_controller/g1_state_machines/initialize.hpp"
 #include "controller/g1_controller/g1_state_machines/single_support_swing.hpp"
+#include "controller/g1_controller/g1_state_machines/lift_foot.hpp"
 #include "controller/g1_controller/g1_state_provider.hpp"
 #include "controller/g1_controller/g1_tci_container.hpp"
 #include "controller/whole_body_controller/managers/dcm_trajectory_manager.hpp"
@@ -75,6 +76,7 @@ G1ControlArchitecture::G1ControlArchitecture(PinocchioRobotSystem *robot,
       tci_container_->task_map_["torso_ori_task"], robot_,
       g1_link::l_foot_contact, g1_link::r_foot_contact,
       sp_->b_use_base_height_);
+  controller_-> BindDCM(dcm_tm_);
   dcm_tm_->InitializeParameters(cfg["dcm_walking"]);
 
   lf_SE3_tm_ = new EndEffectorTrajectoryManager(
@@ -221,6 +223,10 @@ G1ControlArchitecture::G1ControlArchitecture(PinocchioRobotSystem *robot,
   locomotion_state_machine_container_[g1_states::kDoubleSupportSwaying]
       ->SetParameters(cfg);
 
+  locomotion_state_machine_container_[g1_states::LiftFoot] =
+      new LiftFoot(g1_states::LiftFoot, robot_, this);
+  locomotion_state_machine_container_[g1_states::LiftFoot]->SetParameters(cfg);
+
   locomotion_state_machine_container_[g1_states::kLFContactTransitionStart] =
       new ContactTransitionStart(g1_states::kLFContactTransitionStart,
                                  robot_, this);
@@ -294,6 +300,8 @@ G1ControlArchitecture::~G1ControlArchitecture() {
       [g1_states::kDoubleSupportBalance];
   delete locomotion_state_machine_container_
       [g1_states::kDoubleSupportSwaying];
+  delete locomotion_state_machine_container_
+      [g1_states::LiftFoot];
   delete locomotion_state_machine_container_
       [g1_states::kLFContactTransitionStart];
   delete locomotion_state_machine_container_

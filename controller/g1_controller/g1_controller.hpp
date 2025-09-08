@@ -24,6 +24,8 @@ public:
   void SetExternalTorque(const Eigen::VectorXd &tau_ext);
   void SetExternalForce(const Eigen::MatrixXd &f_ext);
 
+  void BindDCM(DCMTrajectoryManager *dcm_tm) { dcm_trajectory_manager_ = dcm_tm; }
+
 private:
   PinocchioRobotSystem *robot_;
   G1TCIContainer *tci_container_;
@@ -35,6 +37,7 @@ private:
   JointIntegrator *joint_integrator_;
   // WBIC
   WBC *wbic_;
+  DCMTrajectoryManager *dcm_trajectory_manager_{nullptr};
 
   Eigen::VectorXd joint_pos_cmd_;
   Eigen::VectorXd joint_vel_cmd_;

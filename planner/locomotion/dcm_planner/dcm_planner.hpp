@@ -234,11 +234,4 @@ protected:
                       const double upper_bound) const;
   int _ClampInt(const int dur, const int lower_bound,
                 const int upper_bound) const;
-
-private:
-  double F_x_ = -10;
-  double M_y_ = 0;
-  double F_x_plus_torque_ = F_x_ + M_y_/z_vrp_; 
-  double offset_F_ = -b_ * b_ * F_x_plus_torque_ /mass_ ;
-  Eigen::Vector3d offset_ = Eigen::Vector3d(offset_F_, 0.0, 0.0);
 };
