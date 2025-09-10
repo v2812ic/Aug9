@@ -2,6 +2,8 @@
 #include "planner/locomotion/dcm_planner/foot_step.hpp"
 #include "util/util.hpp"
 #include <Eigen/Dense>
+#include <fstream>
+#include <filesystem>
 
 namespace dcm_walking_primitive {
 constexpr int kFwdWalk = 0;
@@ -141,5 +143,8 @@ private:
 
   double mass_{35.11};
   double b_{0.25};
-  double dt_{0.00125};
+  double dt_{0.00125}; // aqui se podría poner automático pero uf
+
+  std::ofstream offsets_file_;
+  const std::string offsets_path_{"experiment_data/offsets.txt"};
 };

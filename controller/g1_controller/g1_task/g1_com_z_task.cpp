@@ -38,6 +38,9 @@ void G1CoMZTask::UpdateOpCommand(const Eigen::Matrix3d &world_R_local) {
 
   local_des_acc_ = des_acc_;
 
+  std::cout << "[G1CoMZTask] des_pos_: " << des_pos_.transpose()
+            << ", pos_: " << pos_.transpose() << std::endl;
+
   op_cmd_ = des_acc_ + kp_.cwiseProduct(pos_err_) + kd_.cwiseProduct(vel_err_);
 }
 

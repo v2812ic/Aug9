@@ -14,7 +14,7 @@ class Config(object):
     random_frequency = 0.5
 
     initForce = 2 # sec
-    onlyForce = True
+    onlyForce = True # Causa de que pete el plot de fuerzas, si lo pones a False ya no peta, le pasa a C++ una única fuerza. Debe estar en True para que C++ funcione, hemos de cambiar los plots si acaso
 
     # Sections data
     N_sample = 10
@@ -40,7 +40,7 @@ class Config(object):
     plots = True
 
     # Observer
-    observerActive = False
+    observerActive = True
     n_filter_observer = 2
     gain_observer = 60
     InitObservations = 1 
