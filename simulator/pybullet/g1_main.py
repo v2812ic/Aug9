@@ -192,7 +192,6 @@ def main():
 
     com_pos_act_log = []
     com_vel_act_log = []
-    com_acc_act_log = []
 
     # ====== Finalización/plots (para Ctrl+C) ======
     def finalize():
@@ -209,15 +208,15 @@ def main():
                     pos_right_log = pos_right_log,
                     ori_left_log = ori_left_log,
                     ori_right_log = ori_right_log,
-                    f_ext_log = f_ext_log,
-                    f_real_log = f_real_log,
-                    f_A_r_log= f_A_r_log,
-                    f_D_r_log = f_D_r_log 
+                    #f_ext_log = f_ext_log,
+                    #f_real_log = f_real_log,
+                    #f_A_r_log= f_A_r_log,
+                    #f_D_r_log = f_D_r_log 
                 )
                 plotTorques()
 
                 comlogger.dump(
-                    time=time_log,
+                    time=time_log,       
                     com_pos=com_pos_act_log,
                     com_vel=com_vel_act_log,
                 )
@@ -309,6 +308,9 @@ def main():
         pin.centerOfMass(model, data, q_pin)
         com_W  = data.com[0].copy()
         comd_W = data.vcom[0].copy()
+        com_W[2] += 0.078
+
+        print("comW python: ", com_W)
 
         tau_c, tau_cf, cf_left, cf_right = get_contact_wrenches(g1_humanoid, _ground, model, data, q_pin)
         v_prev = v_pin.copy()

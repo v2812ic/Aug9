@@ -16,6 +16,12 @@ DCMTrajectoryManager::DCMTrajectoryManager(DCMPlanner *dcm_planner,
       walking_primitive_(-1) {
   util::PrettyConstructor(2, "DCMTrajectoryManager");
 
+  std::filesystem::create_directories(std::filesystem::path(offsets_path_).parent_path());
+  offsets_file_.open(offsets_path_, std::ios::out | std::ios::trunc); // nuevo archivo cada corrida
+  if (!offsets_file_) {
+    std::cerr << "[DCMTrajectoryManager] No pude abrir " << offsets_path_ << '\n';
+  }
+
   foot_step_list_.clear();
   foot_step_preview_list_.clear();
 }
@@ -30,6 +36,12 @@ DCMTrajectoryManager::DCMTrajectoryManager(
       first_swing_leg_(end_effector::LFoot), /*b_first_visit_(true),*/
       walking_primitive_(-1), b_use_base_height_(b_use_base_height) {
   util::PrettyConstructor(2, "DCMTrajectoryManager");
+
+  std::filesystem::create_directories(std::filesystem::path(offsets_path_).parent_path());
+  offsets_file_.open(offsets_path_, std::ios::out | std::ios::trunc); // nuevo archivo cada corrida
+  if (!offsets_file_) {
+    std::cerr << "[DCMTrajectoryManager] No pude abrir " << offsets_path_ << '\n';
+  }
 
   foot_step_list_.clear();
   foot_step_preview_list_.clear();
@@ -183,8 +195,12 @@ void DCMTrajectoryManager::UpdateDesired(const double current_time) {
     f_ext_pure = Eigen::Map<const Eigen::VectorXd>(f_ext_.data(), f_ext_.size()).head<3>();
   }
 
-  des_com_pos -= dt_*b_/mass_ * f_ext_pure;
-  des_com_vel -= b_/mass_ * f_ext_pure;
+  Eigen::Vector3d offset_ = b_/mass_ * f_ext_pure;
+
+  if (offsets_file_) offsets_file_ << offset_.transpose() << " " << current_time << "\n";
+
+  des_com_pos -= dt_*offset_;
+  des_com_vel -= offset_;
 
   Eigen::Quaterniond des_ori_quat = Eigen::Quaterniond::Identity();
   Eigen::Vector3d des_ang_vel = Eigen::Vector3d::Zero();
@@ -197,9 +213,13 @@ void DCMTrajectoryManager::UpdateDesired(const double current_time) {
 
   com_xy_task_->UpdateDesired(des_com_pos.head<2>(), des_com_vel.head<2>(),
                               des_com_acc.head<2>());
-  if (!b_use_base_height_)
+  if (!b_use_base_height_){
     com_z_task_->UpdateDesired(des_com_pos.tail<1>(), des_com_vel.tail<1>(),
                                des_com_acc.tail<1>());
+    std::cout << "[DCM TM]: " << des_com_pos.transpose() <<std::endl;
+  }
+  
+  
   torso_ori_task_->UpdateDesired(des_ori_vec, des_ang_vel, des_ang_acc);
 }
 

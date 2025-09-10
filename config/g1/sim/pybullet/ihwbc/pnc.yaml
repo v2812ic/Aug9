@@ -89,7 +89,7 @@ wbc:
       lpf_time_constant: 0.03
 
     com_z_task:
-      com_height_target_source: 1 # 0: com height / 1: base height
+      com_height_target_source: 0 # 0: com height / 1: base height
       com_weight : [1000.]
       com_kp : [100.]
       com_kd : [5.]
@@ -99,8 +99,8 @@ wbc:
       base_kd : [5.] # x, y will be ignored
 
     cam_task:
-      weight : [0., 0., 0.]
-      kd : [0., 0., 0.]
+      weight : [1000., 1000., 1000.]
+      kd : [10., 10., 10.]
 
     wbo_task:
       weight : [0., 0., 0.]
@@ -184,7 +184,7 @@ state_machine:
 
     stand_up:
       standup_duration: 1.
-      target_com_height: 0.60
+      target_com_height: 0.6
       target_base_height: 0.85
 
       rf_z_max_interp_duration: 0.1

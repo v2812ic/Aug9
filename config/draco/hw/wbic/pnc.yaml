@@ -72,7 +72,7 @@ wbc:
       lpf_time_constant: 0.03
 
     com_z_task:
-      com_height_target_source: 1 # 0: com height / 1: base height
+      com_height_target_source: 0 # 0: com height / 1: base height
       com_kp : [1.0]
       com_kd : [1.0]
 
@@ -82,7 +82,7 @@ wbc:
       kp_ik : [1.0]
 
     cam_task:
-      kd : [0., 0., 0.]
+      kd : [100., 100., 100.]
 
     wbo_task:
       kp : [0.0, 0.0, 1.0]
