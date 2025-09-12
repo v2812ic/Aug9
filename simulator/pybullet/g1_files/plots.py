@@ -379,7 +379,7 @@ def _plot_total_grm_xyz(time_arr, moments_left, moments_right, outdir):
 # API pública
 # -----------------------------
 def make_plots(
-    outdir="plots",
+    outdir="plots/general",
     *,
     time=None,     # (T,)
     dt=None,

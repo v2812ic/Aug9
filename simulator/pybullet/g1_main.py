@@ -44,6 +44,7 @@ from g1_files.forces_to_world import group_tripod
 # ====== Plots (se generan en Ctrl+C) ======
 from g1_files.plots import make_plots
 from g1_files.comLogger import ComLogger
+from g1_files.task_plotter import plotTasks
 
 # ===== Aplicación de fuerzas externas transitorias =====
 from g1_files.external_forces import apply_external_forces # test
@@ -199,7 +200,7 @@ def main():
             # Pasá SOLO lo que quieras graficar; lo que no pases, no se dibuja.
             if Config.plots:
                 make_plots(
-                    outdir="plots",
+                    outdir="plots/general",
                     time=time_log,
                     tau_ext=tau_ext_log,
                     cf_left_log = cf_left_log,
@@ -209,11 +210,13 @@ def main():
                     ori_left_log = ori_left_log,
                     ori_right_log = ori_right_log,
                     #f_ext_log = f_ext_log,
-                    #f_real_log = f_real_log,
+                    f_real_log = f_real_log,
                     #f_A_r_log= f_A_r_log,
                     #f_D_r_log = f_D_r_log 
                 )
                 plotTorques()
+
+                plotTasks()
 
                 comlogger.dump(
                     time=time_log,       
@@ -310,8 +313,6 @@ def main():
         comd_W = data.vcom[0].copy()
         com_W[2] += 0.078
 
-        print("comW python: ", com_W)
-
         tau_c, tau_cf, cf_left, cf_right = get_contact_wrenches(g1_humanoid, _ground, model, data, q_pin)
         v_prev = v_pin.copy()
         
@@ -324,24 +325,6 @@ def main():
             test_ = True
             take_action_4()
             print("Start here")
-
-            '''
-            if not fixed:
-                # ====== Fijar pie izquierdo al suelo ======
-                pb.createConstraint(
-                    parentBodyUniqueId=g1_humanoid,
-                    parentLinkIndex=6,
-                    childBodyUniqueId=-1,  # -1 significa el "mundo" o base estática
-                    childLinkIndex=-1,
-                    jointType=pb.JOINT_FIXED,  # El tipo de unión es "fija"
-                    jointAxis=[0, 0, 0],
-                    parentFramePosition=[0, 0, 0], # El punto de anclaje en el eslabón (su origen)
-                    childFramePosition=pb.getLinkState(g1_humanoid, 6)[0], # El punto de anclaje en el mundo
-                    parentFrameOrientation=[0, 0, 0, 1], # Orientación del anclaje en el eslabón
-                    childFrameOrientation=pb.getLinkState(g1_humanoid, 6)[1] # Orientación del anclaje en el mundo
-                )
-            fixed = True
-            '''
 
         # --- Solver de fuerzas en las piernas
         if not count % Config.solver_frequency:
@@ -369,7 +352,7 @@ def main():
             #f_A_r, t_A_r = sections.apply_archimedes(g1_humanoid, com_W, count*dt, water)
             #f_D_r, t_D_r = sections.apply_drag(g1_humanoid, com_W, count*dt, water)
             f_real_ext_test[:3] = apply_external_forces(g1_humanoid, count*dt) # si aplica
-
+            print ("Fuerza externa: ", f_real_ext_test[0], "N")
             pass
 
         # Informacion varia de la posicion y orientacion del pie
