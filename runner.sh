@@ -9,5 +9,8 @@ cmake ..   -DProtobuf_PROTOC_EXECUTABLE=$(which protoc)   -DProtobuf_INCLUDE_DIR
 make -j12
 cd ..
 
+rm -rf experiment_data
+rm -rf plots
+
 # corre el codigo
 python simulator/pybullet/g1_main.py

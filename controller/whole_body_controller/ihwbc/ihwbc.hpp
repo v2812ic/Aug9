@@ -54,6 +54,7 @@ private:
   Eigen::MatrixXd f_ext_;
 
   int iter_{0};
+  double dt_{0.00125};
   int print_every_{100};
 
 

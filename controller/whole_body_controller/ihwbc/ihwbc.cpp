@@ -24,7 +24,8 @@ void IHWBC::Solve(const std::unordered_map<std::string, Task *> &task_map,
                   std::map<std::string, ForceTask *> &force_task_map,
                   Eigen::VectorXd &qddot_cmd, Eigen::VectorXd &trq_cmd) {
 
-  bool kPrint_ = ((iter_++ % print_every_) == 0);
+  iter_++;
+  double t_ = iter_*dt_;
 
   assert(task_map.size() > 0);
   b_contact_ = contact_map.size() > 0 ? true : false;
@@ -46,6 +47,7 @@ void IHWBC::Solve(const std::unordered_map<std::string, Task *> &task_map,
     Eigen::VectorXd des_xddot = task_ptr->OpCommand();
     Eigen::MatrixXd weight_mat = task_ptr->Weight().asDiagonal();
 
+    task_ptr->Export(task_str, t_);
     //std::cout << task_str << std::endl;
     // std::cout
     //<< "--------------------------------------------------------------"
@@ -55,11 +57,6 @@ void IHWBC::Solve(const std::unordered_map<std::string, Task *> &task_map,
 
     // Debug Task
     // task_ptr->Debug();
-
-    if (kPrint_){
-      //std::cout << "[IHWBC] weight task \"" << task_str << "\": " << jt.transpose() * weight_mat * jt << " | " << (jtdot_qdot - des_xddot).transpose() * weight_mat * jt << std::endl;
-    }
-
     cost_t_mat += jt.transpose() * weight_mat * jt;
     cost_t_vec += (jtdot_qdot - des_xddot).transpose() * weight_mat * jt;
   }
