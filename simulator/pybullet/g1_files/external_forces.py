@@ -20,7 +20,7 @@ def apply_external_forces(robot, t):
 
     if t > 2:
 
-        F = np.array([0, 0, 0])
+        F = np.array([-200, 0, 0])
         F = F*2/np.pi*np.arctan(0.5*(t - 2))
         pb.applyExternalForce(robot, -1, F, [0.0, 0.0, 0.0], pb.WORLD_FRAME)
     

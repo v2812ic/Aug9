@@ -1,6 +1,7 @@
 #include "controller/g1_controller/g1_task/g1_cam_task.hpp"
 #include "controller/g1_controller/g1_definition.hpp"
 #include "controller/g1_controller/g1_state_provider.hpp"
+#include "controller/robot_system/pinocchio_robot_system.hpp"
 
 G1CAMTask::G1CAMTask(PinocchioRobotSystem *robot) : Task(robot, 3) {
   util::PrettyConstructor(3, "G1CAMTask");
@@ -9,8 +10,7 @@ G1CAMTask::G1CAMTask(PinocchioRobotSystem *robot) : Task(robot, 3) {
 }
 
 void G1CAMTask::UpdateOpCommand(const Eigen::Matrix3d &world_R_local) {
-  vel_ = sp_->cam_est_;
-  // std::cout << "cam: " << vel_.transpose() << std::endl;
+  vel_ = robot_->GetHg().head<3>();
 
   vel_err_ = des_vel_ - vel_;
 

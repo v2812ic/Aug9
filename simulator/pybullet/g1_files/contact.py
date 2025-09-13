@@ -63,7 +63,7 @@ def get_contact_wrenches(robot, ground, model, data, q_pin):
 
         wrench_w = np.hstack([f_world, M_at_frame_origin_w])
 
-        if link_idx == 6:
+        if link_idx == 6: # ?? o 6, 13
             cf_left.append(wrench_w)
         if link_idx == 13:
             cf_right.append(wrench_w)
