@@ -45,6 +45,7 @@ from g1_files.forces_to_world import group_tripod
 from g1_files.plots import make_plots
 from g1_files.comLogger import ComLogger
 from g1_files.task_plotter import plotTasks
+from g1_files.zmp_plotter import plot_zmp
 
 # ===== Aplicación de fuerzas externas transitorias =====
 from g1_files.external_forces import apply_external_forces # test
@@ -166,7 +167,7 @@ def main():
     f_ext = None
 
     # == Objeto de agua ==
-    #water = Water()
+    water = Water()
 
     # == Lista de secciones del humanoide donde aplicar la fuerza ==
     #pressureInterpolator = PressureInterpolator()
@@ -217,6 +218,16 @@ def main():
                 plotTorques()
 
                 plotTasks()
+
+                plot_zmp(
+                    time=time_log,
+                    cf_left_log=cf_left_log,
+                    cf_right_log=cf_right_log,
+                    pos_left_log=pos_left_log,
+                    ori_left_log=ori_left_log,
+                    pos_right_log=pos_right_log,
+                    ori_right_log=ori_right_log
+                )
 
                 comlogger.dump(
                     time=time_log,       
@@ -352,7 +363,7 @@ def main():
             #f_A_r, t_A_r = sections.apply_archimedes(g1_humanoid, com_W, count*dt, water)
             #f_D_r, t_D_r = sections.apply_drag(g1_humanoid, com_W, count*dt, water)
             f_real_ext_test[:3] = apply_external_forces(g1_humanoid, count*dt) # si aplica
-            print ("Fuerza externa: ", f_real_ext_test[0], "N")
+            #print ("Fuerza externa: ", f_real_ext_test[0], "N")
             pass
 
         # Informacion varia de la posicion y orientacion del pie

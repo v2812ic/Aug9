@@ -158,7 +158,7 @@ wbc:
     mu: 0.7
     foot_half_length: 0.07
     foot_half_width: 0.02 ## 0.04
-    foot_offset: 0.02
+    foot_offset: 0.02 # positivo, en dirección x negativa
     kp: [0, 0, 0, 0, 0, 0] ## ori, pos order
     kd: [0, 0, 0, 0, 0, 0]
 

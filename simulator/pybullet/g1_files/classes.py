@@ -2,7 +2,7 @@ import numpy as np
 import pybullet as pb
 import math
 from config.g1.sim.pybullet.ihwbc.pybullet_params import Config
-
+from scipy.optimize import fsolve
 
 # A final de semana tengo que tener cómo funciona el WBC, todo menos el último capítulo, y tendré un mes para redactar y funarme la última parte. No da tiempo xd. Si quiero funarlo en dos semanas...
 # Redacción WBC (4H) xd, va a ser mucho más que eso
@@ -22,18 +22,44 @@ class Water:
         self.rho = Config.rho
         self.nu = Config.nu
 
-        self.v_base = Config.v_water
         self.theta_base = Config.theta
-        self.v_vec_base = np.array([self.v_base*math.cos(self.theta_base), self.v_base*math.sin(self.theta_base), 0.0])
 
-        self.random_amplitude = Config.random_amplitude
-        self.random_freq = Config.random_frequency
+        self.kappa = 0.41
+        self.D = 0.4
+        self.ks = 0.1
 
-         # Incluir parametros random
+        self.sw = Config.sw
+
+        self.u_star = np.sqrt(self.sw*self.D*9.81)
+        self.Re_star = self.ks*self.u_star/self.nu
+
+        self.z0 = self.ks*(0.0275 - 0.007*np.sqrt(np.sin((self.Re_star - 4)/14)*np.pi))
+
+        def eq(ztg):
+            t1 = self.u_star/self.kappa*np.log(ztg/self.ks)
+            t2 = -2.5*self.u_star*np.log(self.z0)
+            t3 = -self.u_star/(self.kappa*ztg)
+
+            return t1 + t2 + t3
+        
+        self.zt = fsolve(eq, 0.1)
+
+
+        print("zt: ", self.zt, "m")
+        print("h: ", self.h, "m")
+        print("Max water speed: ", self.u_star/self.kappa*np.log(z/self.ks) - 2.5*self.u_star*np.log(self.z0/self.ks), "m/s")
+
     
     # TODO: rutinas que actualicen su velocidad y posicion
     def get_v_vec(self, z):
-        return self.v_vec_base
+
+        mod = None
+        if z >= self.zt:
+            mod = self.u_star/self.kappa*np.log(z/self.ks) - 2.5*self.u_star*np.log(self.z0/self.ks)
+        else:
+            mod = self.u_star*z/(self.kappa*self.zt)
+        
+        return mod*np.array([np.cos(self.theta_base), np.sin(self.theta_base)])
 
     def update_params(self): # Las llamadas de esto requeriran parametros de Config, directamente pasados desde alli
         pass

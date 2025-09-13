@@ -5,10 +5,11 @@ class Config(object):
 
     # Water sampling
     v_water = 2
-    h_water = 0.34
+    h_water = 0.4
     theta = np.pi
     rho = 1000
     nu = 1e-6
+    sw = 0.001
 
     random_amplitude = 0.1
     random_frequency = 0.5
