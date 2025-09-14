@@ -37,20 +37,20 @@ class Config(object):
                     'rot_off':(0,0,0)}
 
     # Simulation control
-    endSimulation = 100
+    endSimulation = 10
     plots = True
 
     # Observer
-    observerActive = False
+    observerActive = True
     n_filter_observer = 2
     gain_observer = 100
-    InitObservations = 1 
+    InitObservations = 2
 
     solver_frequency = 1
     rglrztn_forces = 0.1
     pinv_forces = True
     printForces = False
-    plotTorques = False
+    plotTorques = True
     left_ids = []
     right_ids = []
     pelvis_ids = [-1]

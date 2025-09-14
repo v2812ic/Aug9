@@ -42,10 +42,10 @@ from g1_files.solver_forces import solve_force
 from g1_files.forces_to_world import group_tripod
 
 # ====== Plots (se generan en Ctrl+C) ======
-from g1_files.plots import make_plots
-from g1_files.comLogger import ComLogger
-from g1_files.task_plotter import plotTasks
-from g1_files.zmp_plotter import plot_zmp
+from g1_files.for_plots.plots import make_plots
+from g1_files.for_plots.comLogger import ComLogger
+from g1_files.for_plots.task_plotter import plotTasks
+from g1_files.for_plots.zmp_plotter import plot_zmp
 
 # ===== Aplicación de fuerzas externas transitorias =====
 from g1_files.external_forces import apply_external_forces # test
@@ -53,7 +53,7 @@ from g1_files.classes import SectionManager, Water
 from g1_files.interpolator_pressure import PressureInterpolator
 
 # ===== Mirar el uso de actuadores =====
-from g1_files.printTorques import printTorques, plotTorques
+from simulator.pybullet.g1_files.for_plots.printTorques import printTorques, plotTorques
 flag_torque_limit = False
 
 # ===== Acciones segun el momento
@@ -324,7 +324,7 @@ def main():
         comd_W = data.vcom[0].copy()
         com_W[2] += 0.078
 
-        tau_c, tau_cf, cf_left, cf_right = get_contact_wrenches(g1_humanoid, _ground, model, data, q_pin)
+        tau_c, tau_cf, cf_left, cf_right, force_0 = get_contact_wrenches(g1_humanoid, _ground, model, data, q_pin)
         v_prev = v_pin.copy()
         
         tau_j[:] = 0.0
@@ -365,6 +365,11 @@ def main():
             f_real_ext_test[:3] = apply_external_forces(g1_humanoid, count*dt) # si aplica
             #print ("Fuerza externa: ", f_real_ext_test[0], "N")
             pass
+
+        ''' TEST DE EQUILIBRIO'''
+
+
+        '''FIN DE TEST DE EQUILIBRIO'''
 
         # Informacion varia de la posicion y orientacion del pie
         pos_left, ori_left = pb.getLinkState(g1_humanoid, 6)[0], pb.getLinkState(g1_humanoid, 6)[1]

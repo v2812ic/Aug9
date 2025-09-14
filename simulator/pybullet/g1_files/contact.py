@@ -11,12 +11,17 @@ def get_contact_wrenches(robot, ground, model, data, q_pin):
     cf_left = []
     cf_right = []
 
+    force_0 = np.zeros(6)
+
     # It's crucial that 'data' reflects the current 'q_pin' for frame kinematics.
     # pin.computeFrameJacobian might update kinematics for the specific frame,
     # but to be absolutely safe or if you need frame poses for other things
     # before the Jacobian call, ensure forward kinematics is run.
     # However, data.oMf[frame_id] will be correctly populated by computeFrameJacobian
     # for the q_pin used in its call.
+
+    pin.forwardKinematics(model, data, q_pin)
+    pin.updateFramePlacements(model, data)
 
     for contact in contacts:
         link_idx = contact[3]  # PyBullet link index (-1 for base)
@@ -48,30 +53,35 @@ def get_contact_wrenches(robot, ground, model, data, q_pin):
 
         # Jacobian of the frame 'frame_id' expressed in the world frame.
         # This call updates data.oMf[frame_id] internally for the given q_pin.
-        J6_world = pin.computeFrameJacobian(model, data, q_pin, frame_id, pin.ReferenceFrame.WORLD)
+        J6_world = pin.computeFrameJacobian(model, data, q_pin, frame_id, pin.ReferenceFrame.WORLD) # LO HE PILLADO JODEEEEEEEER
 
         # print(np.shape(J6_world))
 
         # Origin of the frame 'frame_id' in world coordinates
-        pos_frame_origin_w = data.oMf[frame_id].translation
+        pos_frame_origin_w = data.oMf[frame_id].translation # Esto no lo quieres porque tu jacobiano está en world, ojo ojo
 
         # Vector from the frame origin to the contact point, in world coordinates
-        r_frame_origin_to_contact_point_w = pos_c - pos_frame_origin_w
+        r_frame_origin_to_contact_point_w = pos_c
+        r = pos_c - pos_frame_origin_w
 
         # Moment of the contact force about the frame origin, in world coordinates
         M_at_frame_origin_w = np.cross(r_frame_origin_to_contact_point_w, f_world)
+        M_at_reference_w = np.cross(r, f_world)
 
         wrench_w = np.hstack([f_world, M_at_frame_origin_w])
+        wrench_ref = np.hstack([f_world, M_at_reference_w])
 
         if link_idx == 6: # ?? o 6, 13
-            cf_left.append(wrench_w)
+            cf_left.append(wrench_ref)
         if link_idx == 13:
-            cf_right.append(wrench_w)
+            cf_right.append(wrench_ref)
 
         qc_ind = J6_world.T @ wrench_w
 
         tau_cf.append(qc_ind)
 
+        force_0 += wrench_w
+
         qc_tau += qc_ind
 
-    return qc_tau, tau_cf, cf_left, cf_right
+    return qc_tau, tau_cf, cf_left, cf_right, force_0
