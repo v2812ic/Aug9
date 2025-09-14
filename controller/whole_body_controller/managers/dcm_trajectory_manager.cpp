@@ -197,10 +197,10 @@ void DCMTrajectoryManager::UpdateDesired(const double current_time) {
 
   Eigen::Vector3d offset_ = b_/mass_ * f_ext_pure;
 
-  if (offsets_file_) offsets_file_ << offset_.transpose() << " " << current_time << "\n";
+  //if (offsets_file_) offsets_file_ << offset_.transpose() << " " << current_time << "\n";
 
-  des_com_pos -= dt_*offset_;
-  des_com_vel -= offset_;
+  //des_com_pos -= dt_*offset_;
+  //des_com_vel -= offset_;
 
   Eigen::Quaterniond des_ori_quat = Eigen::Quaterniond::Identity();
   Eigen::Vector3d des_ang_vel = Eigen::Vector3d::Zero();

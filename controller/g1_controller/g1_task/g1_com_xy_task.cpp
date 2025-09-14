@@ -39,27 +39,18 @@ void G1CoMXYTask::UpdateOpCommand(const Eigen::Matrix3d &world_R_local) {
   pos_ << com_xy_pos[0], com_xy_pos[1];
   vel_ << com_xy_vel[0], com_xy_vel[1];
 
+  Eigen::Vector3d f_ext_pure = Eigen::Vector3d::Zero();
+
+  if ((f_ext_.rows() == 1 or f_ext_.cols() == 1) && f_ext_.size() >= 3) {
+    f_ext_pure = Eigen::Map<const Eigen::VectorXd>(f_ext_.data(), f_ext_.size()).head<3>();
+  }
   
-  {/*
-    double deltat_ = 0.00125;
-    double b_ = 0.257;
-    Eigen::Vector3d F_ext_ = Eigen::Vector3d(-30, 0);
-    double m_ = 35.11;
+  Eigen::Vector3d offset_ = b_/mass_ * f_ext_pure;
+  //std::cout << offset_.transpose() << std::endl;
 
-    Eigen::Vector3d delta_x = -b_/m_ * deltat_ * F_ext_;
-    std::cout << delta_x.transpose() << std::endl;
+  if (offsets_file_) offsets_file_ << offset_.transpose() << " " << sp_->current_time_ << "\n";
 
-
-    if (sp_->current_time_ > 2){
-      std::cout << des_pos_.transpose() << std::endl;
-      des_pos_ += delta_x;
-      des_vel_ += delta_x/deltat_;
-
-      std::cout << "Aplicando fuerza" << std::endl;
-    }
-  */}
-
-  pos_err_ = des_pos_ - pos_;
+  pos_err_ = des_pos_ - offset_.head<2>() - pos_;
   vel_err_ = des_vel_ - vel_;
 
   Eigen::Matrix2d local_R_world =

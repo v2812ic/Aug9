@@ -47,7 +47,7 @@ class Water:
 
         print("zt: ", self.zt, "m")
         print("h: ", self.h, "m")
-        print("Max water speed: ", self.u_star/self.kappa*np.log(z/self.ks) - 2.5*self.u_star*np.log(self.z0/self.ks), "m/s")
+        print("Max water speed: ", self.u_star/self.kappa*np.log(self.h/self.ks) - 2.5*self.u_star*np.log(self.z0/self.ks), "m/s")
 
     
     # TODO: rutinas que actualicen su velocidad y posicion

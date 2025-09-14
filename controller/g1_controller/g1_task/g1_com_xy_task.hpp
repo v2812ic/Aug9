@@ -41,6 +41,11 @@ public:
   Eigen::Vector2d icp_ = Eigen::Vector2d::Zero();
   Eigen::Vector2d des_icp_dot_ = Eigen::Vector2d::Zero();
 
+
+  void SetExternalForce(const Eigen::VectorXd &f_ext) {
+    f_ext_ = f_ext;
+  }
+
 private:
   G1StateProvider *sp_;
 
@@ -55,6 +60,14 @@ private:
   double leaky_rate_;
   Eigen::Vector2d leaky_integrator_limit_ = Eigen::Vector2d::Zero();
   Eigen::Vector2d icp_integral_ = Eigen::Vector2d::Zero();
+
+  Eigen::MatrixXd f_ext_;
+
+  std::ofstream offsets_file_;
+  const std::string offsets_path_{"experiment_data/offsets.txt"};
+
+  double mass_{35.11};
+  double b_{0.247};
 
 #if B_USE_MATLOGGER
   // XBot::MatLogger2::Ptr logger_;

@@ -711,6 +711,10 @@ void G1Controller::SetExternalForce(const Eigen::MatrixXd& f_ext)
         wbic_->SetExternalForce(f_ext);
     }
 
-    if (dcm_trajectory_manager_) dcm_trajectory_manager_->SetExternalForce(f_ext);
+    // pasarle a la tarea de com la cosa esta
+    
+    for (auto& task : tci_container_->task_map_){
+      task.second->SetExternalForce(f_ext);
+    }
 }
 
