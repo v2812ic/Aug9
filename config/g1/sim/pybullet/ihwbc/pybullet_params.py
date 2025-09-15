@@ -37,7 +37,7 @@ class Config(object):
                     'rot_off':(0,0,0)}
 
     # Simulation control
-    endSimulation = 10
+    endSimulation = 20
     plots = True
 
     # Observer

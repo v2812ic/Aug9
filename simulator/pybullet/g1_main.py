@@ -202,6 +202,7 @@ def main():
             if Config.plots:
                 make_plots(
                     outdir="plots/general",
+                    plot_from_time = 0.0,
                     time=time_log,
                     tau_ext=tau_ext_log,
                     cf_left_log = cf_left_log,
@@ -210,14 +211,14 @@ def main():
                     pos_right_log = pos_right_log,
                     ori_left_log = ori_left_log,
                     ori_right_log = ori_right_log,
-                    #f_ext_log = f_ext_log,
+                    f_ext_log = f_ext_log,
                     f_real_log = f_real_log,
                     #f_A_r_log= f_A_r_log,
                     #f_D_r_log = f_D_r_log 
                 )
-                plotTorques()
+                plotTorques(plot_from_time=0.0)
 
-                plotTasks()
+                plotTasks(plot_from_time=0.0)
 
                 plot_zmp(
                     time=time_log,
@@ -226,7 +227,8 @@ def main():
                     pos_left_log=pos_left_log,
                     ori_left_log=ori_left_log,
                     pos_right_log=pos_right_log,
-                    ori_right_log=ori_right_log
+                    ori_right_log=ori_right_log,
+                    plot_from_time = 0.0
                 )
 
                 comlogger.dump(
@@ -339,14 +341,17 @@ def main():
 
         # --- Solver de fuerzas en las piernas
         if not count % Config.solver_frequency:
-            f_ext_local = solve_force(Config.rglrztn_forces, Config.link_idx_vec, tau_ext, g1_humanoid, model, data, q_pin, Config.pinv_forces, Config.printForces)
+            aux = com_W.copy()
+            aux[2] -= 0.078
+            f_ext = solve_force(-1, aux, tau_ext, g1_humanoid, model, data, q_pin)
+            
             #print("globals: ", f_ext_local)
-            f_ext = group_tripod(f_ext_local, g1_humanoid, Config.link_idx_vec, Config.left_ids, Config.right_ids, Config.pelvis_ids, ref_W = com_W)
+            #f_ext = group_tripod(f_ext_local, g1_humanoid, Config.link_idx_vec, Config.left_ids, Config.right_ids, Config.pelvis_ids, ref_W = com_W)
 
-            if Config.onlyForce:
-                f_ext = f_ext.sum(axis = 0)
+            #if Config.onlyForce:
+            #    f_ext = f_ext.sum(axis = 0)
            
-            rpc_g1_interface.set_external_force(f_ext)
+            #rpc_g1_interface.set_external_force(f_ext)
                 
         # Se la pasamos a C++ cuando ha empezado
         if Config.InitObservations < count*dt:
@@ -362,7 +367,7 @@ def main():
         if count * dt > Config.initForce:
             #f_A_r, t_A_r = sections.apply_archimedes(g1_humanoid, com_W, count*dt, water)
             #f_D_r, t_D_r = sections.apply_drag(g1_humanoid, com_W, count*dt, water)
-            f_real_ext_test[:3] = apply_external_forces(g1_humanoid, count*dt) # si aplica
+            f_real_ext_test = apply_external_forces(g1_humanoid, count*dt, model= model, data = data, q_pin= q_pin) # si aplica
             #print ("Fuerza externa: ", f_real_ext_test[0], "N")
             pass
 
