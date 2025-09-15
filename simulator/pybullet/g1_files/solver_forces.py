@@ -2,6 +2,7 @@ import numpy as np
 import pinocchio as pin
 import pybullet as pb
 import pybullet_data
+from typing import Sequence
 
 # -----------------------------------------------------------------------------
 #                    FUNCIONES DE AYUDA (Sin cambios)
@@ -48,49 +49,80 @@ def _get_link_com_world(g1_humanoid, link_idx):
 #          FUNCIÓN COMPLETA Y DEFINITIVA
 # -----------------------------------------------------------------------------
 
-def solve_force(link_idx: int, 
-                                p_link_com_world: np.ndarray, 
-                                tau_ext: np.ndarray, 
-                                g1_humanoid: int, 
-                                model: pin.Model, 
-                                data: pin.Data, 
-                                q_pin: np.ndarray) -> np.ndarray:
+def solve_force(
+    link_idxs: Sequence[int],
+    p_link_com_world: np.ndarray,
+    tau_ext: np.ndarray,
+    g1_humanoid: int,
+    model: pin.Model,
+    data: pin.Data,
+    q_pin: np.ndarray
+) -> np.ndarray:
     """
-    Estima la wrench para un único link y la devuelve trasladada al CoM de ese link.
+    Estima las wrenches para varios links usando la matriz de jacobianos apilados,
+    traslada cada wrench al mismo punto p_link_com_world y devuelve la suma.
 
     Args:
-        link_idx (int): El índice del link a analizar (-1 para la base).
-        p_link_com_world (np.ndarray): La posición (x,y,z) del CoM del link en coordenadas WORLD.
-        tau_ext (np.ndarray): El vector de torques externos residuales.
+        link_idxs (Sequence[int]): Índices de los links a analizar (-1 permitido para la base).
+        p_link_com_world (np.ndarray): Punto común (x,y,z) en WORLD al que trasladar todas las wrenches.
+        tau_ext (np.ndarray): Vector de torques externos residuales (nv,).
         g1_humanoid, model, data, q_pin: Objetos de simulación y estado.
 
     Returns:
-        np.ndarray: La wrench [Fx,Fy,Fz,Mx,My,Mz] estimada en el punto p_link_com_world.
+        np.ndarray: Wrench total [Fx, Fy, Fz, Mx, My, Mz] en el punto común p_link_com_world.
     """
-    # -- Paso 1: Estimar la wrench en el origen del frame del link --
+    # -- Preparación de entradas --
+    link_idxs = list(link_idxs)
+    if len(link_idxs) == 0:
+        return np.zeros(6)
+
+    tau_ext = np.asarray(tau_ext, dtype=float).reshape(-1)
+    p_common = np.asarray(p_link_com_world, dtype=float).reshape(3)
+
+    # -- Cinemática --
     pin.forwardKinematics(model, data, q_pin)
     pin.updateFramePlacements(model, data)
 
-    fid = _frame_id_from_link_idx(model, g1_humanoid, link_idx)
-    J6_worldT = pin.computeFrameJacobian(model, data, q_pin, fid, pin.ReferenceFrame.LOCAL).T
+    # -- Construir jacobianos apilados y orígenes de frame --
+    J_blocks = []             # cada bloque es (nv x 6)
+    frame_origins = []        # posiciones (3,) del origen del frame de cada link en WORLD
 
-    tau_ext = np.asarray(tau_ext, dtype=float).reshape(-1)
-    
-    # Resolver la estimación inicial usando la pseudoinversa
-    wrench_at_frame_origin = np.linalg.pinv(J6_worldT) @ tau_ext
-    
-    # -- Paso 2: Trasladar la wrench al CoM del link proporcionado --
-    
-    # Punto de partida: el origen del frame donde se calculó la wrench
-    p_frame_origin = np.asarray(data.oMf[fid].translation).reshape(3)
-    
-    # Punto de destino: el CoM que nos han pasado como argumento
-    p_link_com = np.asarray(p_link_com_world).reshape(3)
+    for idx in link_idxs:
+        fid = _frame_id_from_link_idx(model, g1_humanoid, idx)
 
-    final_wrench_at_com = _wrench_translate(
-        wrench=wrench_at_frame_origin,
-        p_from=p_frame_origin,
-        p_to=p_link_com
-    )
-    
-    return final_wrench_at_com
+        # Jacobiano 6D en LOCAL, transpuesto -> (nv x 6) para cumplir tau = J @ w
+        J6_worldT = pin.computeFrameJacobian(
+            model, data, q_pin, fid, pin.ReferenceFrame.LOCAL
+        ).T
+        J_blocks.append(J6_worldT)
+
+        frame_origins.append(np.asarray(data.oMf[fid].translation).reshape(3))
+
+    # Apilar horizontalmente: J_stack (nv x 6m)
+    J_stack = np.hstack(J_blocks)
+
+    # -- Resolver todas las wrenches a la vez --
+    # tau_ext ≈ J_stack @ w_stack, donde w_stack = [w1; w2; ...; wm] (6m,)
+    w_stack = np.linalg.pinv(J_stack) @ tau_ext
+    # (opcional, regularizada):
+    # lam = 1e-8
+    # JT = J_stack.T
+    # w_stack = JT @ np.linalg.solve(J_stack @ JT + lam * np.eye(J_stack.shape[0]), tau_ext)
+
+    # -- Trasladar cada wrench al punto común y sumar --
+    total_wrench = np.zeros(6)
+    m = len(link_idxs)
+    for i in range(m):
+        w_i_at_frame = w_stack[6*i : 6*(i+1)]           # (6,)
+        p_from = frame_origins[i]                       # origen del frame i (WORLD)
+
+        # trasladar desde el origen del frame del link i al punto común
+        w_i_at_common = _wrench_translate(
+            wrench=w_i_at_frame,
+            p_from=p_from,
+            p_to=p_common
+        )
+
+        total_wrench += w_i_at_common
+
+    return total_wrench

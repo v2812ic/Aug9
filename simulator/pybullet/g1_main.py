@@ -343,7 +343,7 @@ def main():
         if not count % Config.solver_frequency:
             aux = com_W.copy()
             aux[2] -= 0.078
-            f_ext = solve_force(-1, aux, tau_ext, g1_humanoid, model, data, q_pin)
+            f_ext = solve_force(Config.link_idx_vec, aux, tau_ext, g1_humanoid, model, data, q_pin)
             
             #print("globals: ", f_ext_local)
             #f_ext = group_tripod(f_ext_local, g1_humanoid, Config.link_idx_vec, Config.left_ids, Config.right_ids, Config.pelvis_ids, ref_W = com_W)
