@@ -71,7 +71,7 @@ wbc:
       com_feedback_source: 0 # 0: com feedback / 1: icp feedback
       icp_integrator_type: 0 # 0: exponential smoother / 1: leaky integrator
 
-      weight : [100., 100.]
+      weight : [1000., 1000.]
       kp : [200., 200.]
       kd : [10., 10.]
       icp_weight : [2000., 2000.] # only used when feedback source : 1

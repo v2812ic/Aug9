@@ -77,7 +77,7 @@ def printTorques(g1_humanoid, t, rpc_trq_command, flag_torque_limit,
                  warn_frac=0.05, verbose=True, log_usage=True):
     """
     - Imprime líneas cuando una articulación supera 'warn_frac' del límite.
-    - Registra %uso por articulación para graficar luego con plot_torques().
+    - Registra %uso por articulación para graficar luego con plotTorques().
     """
     _ensure_joint_info(g1_humanoid)
 
@@ -148,7 +148,7 @@ STYLE_GUIDE = {
 }
 
 def plotTorques(outdir="plots/torques", topk=8, include_heatmap=True,
-                plot_from_zero=True):
+                plot_from_zero=True, plot_from_time=None):
     """
     Generate torque usage plots with unified style:
       1) Time series of Top-K joints by peak usage.
@@ -161,6 +161,8 @@ def plotTorques(outdir="plots/torques", topk=8, include_heatmap=True,
         topk (int): number of top joints to plot
         include_heatmap (bool): include heatmap plot
         plot_from_zero (bool): if False, start plotting from t >= 2.0s
+        plot_from_time (float|None): si no es None, se usa como tiempo inicial.
+                                     Tiene prioridad sobre plot_from_zero.
     """
     if len(_TIME_LOG) == 0 or len(_USAGE_LOG) == 0:
         print("[plotTorques] No torque data logged.")
@@ -173,11 +175,15 @@ def plotTorques(outdir="plots/torques", topk=8, include_heatmap=True,
     U_all = np.asarray(_USAGE_LOG, dtype=float)  # (T, D)
     names = _JOINT_NAMES_ORDER
 
-    # --- time window ---
-    start_time = 0.0 if plot_from_zero else 2.0
-    mask = t_all >= start_time
+    # --- time window (solo desde el inicio) ---
+    if plot_from_time is not None:
+        t0 = float(plot_from_time)
+    else:
+        t0 = 0.0 if plot_from_zero else 2.0
+
+    mask = (t_all >= t0)
     if not np.any(mask):
-        print(f"[plotTorques] No samples with t >= {start_time:.2f}s; using all.")
+        print(f"[plotTorques] No samples with t >= {t0:.2f}s; using all.")
         mask = np.ones_like(t_all, dtype=bool)
 
     t = t_all[mask]
