@@ -100,13 +100,13 @@ def apply_wrench(robot, link_idx, F_world, M_world, p_app, frame="WORLD"):
 # -----------------------------
 def apply_external_forces(
     robot, t, *,
-    link_idx=-1,
-    F_target=np.array([-0.0, 0.0, 0.0]),
+    link_idx=11,
+    F_target=np.array([-20.0, 0.0, 0.0]),
     M_target=np.array([0.0, 0.0, 0.0]),
     p_app=None,
     p_app_frame="LINK",
-    t_on=2.0,
-    ramp=100,
+    t_on=3.0,
+    ramp=500,
     # NUEVO: para referir todo al CoM GLOBAL
     model=None, data=None, q_pin=None,
     return_wrench_about="COM_GLOBAL",
@@ -122,6 +122,8 @@ def apply_external_forces(
         s = (2.0/np.pi)*np.arctan(ramp*(t - t_on))
         F = F_target * s
         M = M_target * s
+
+        print(F.transpose(), " N")
 
         # p_app por defecto
         if p_app is None:

@@ -37,7 +37,7 @@ class Config(object):
                     'rot_off':(0,0,0)}
 
     # Simulation control
-    endSimulation = 20
+    endSimulation = 200
     plots = True
 
     # Observer
@@ -57,7 +57,7 @@ class Config(object):
 
     smooth_forces = 0.1 # 0 a 1, hace que la aplicación de fuerzas no sea instantánea
 
-    link_idx_vec = [-1] # Este man tiene que coincidir cn la segmentacion que se haga de left-right-pelvis
+    link_idx_vec = [11] # Este man tiene que coincidir cn la segmentacion que se haga de left-right-pelvis
 
     
     MAX_SIMULATION_TIME = 5.0  # seconds

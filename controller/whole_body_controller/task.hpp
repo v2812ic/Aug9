@@ -189,9 +189,9 @@ public:
     };
 
     // — Señales vectoriales (una fila por ciclo) —
-    //io::CsvWriter::append_row(base + "/des_pos.csv",  vec_header("des_pos",  des_pos_.size()),  vec_row(des_pos_));
-    //io::CsvWriter::append_row(base + "/des_vel.csv",  vec_header("des_vel",  des_vel_.size()),  vec_row(des_vel_));
-    //io::CsvWriter::append_row(base + "/des_acc.csv",  vec_header("des_acc",  des_acc_.size()),  vec_row(des_acc_));
+    io::CsvWriter::append_row(base + "/des_pos.csv",  vec_header("des_pos",  des_pos_.size()),  vec_row(des_pos_));
+    io::CsvWriter::append_row(base + "/des_vel.csv",  vec_header("des_vel",  des_vel_.size()),  vec_row(des_vel_));
+    io::CsvWriter::append_row(base + "/des_acc.csv",  vec_header("des_acc",  des_acc_.size()),  vec_row(des_acc_));
 
     //io::CsvWriter::append_row(base + "/local_des_pos.csv", vec_header("local_des_pos",  local_des_pos_.size()), vec_row(local_des_pos_));
     //io::CsvWriter::append_row(base + "/local_des_vel.csv", vec_header("local_des_vel",  local_des_vel_.size()), vec_row(local_des_vel_));

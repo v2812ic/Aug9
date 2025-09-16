@@ -177,10 +177,10 @@ end
 if has_offsets && ~isempty(t_ref_c)
     off_c = interp1(t_off, off_xyz, t_ref_c, 'linear', 'extrap'); % [N x 3]
     % Aplicaciones
-    com_pos_ref_off_c = com_pos_ref_c - com_offset_gain * off_c; % posición con ganancia
+    com_pos_ref_off_c = com_pos_ref_c - off_c; % posición con ganancia
     dcm_pos_ref_off_c = dcm_pos_ref_c - off_c;                    % DCM con offset tal cual
     vrp_ref_off_c     = vrp_ref_c     - off_c;                    % VRP con offset tal cual
-    com_vel_ref_off_c = com_vel_ref_c - off_c;                    % *** NUEVO: vel CoM con offset (sin dt ni escalado)
+    com_vel_ref_off_c = com_vel_ref_c;                    % *** NUEVO: vel CoM con offset (sin dt ni escalado)
 else
     com_pos_ref_off_c = [];
     dcm_pos_ref_off_c = [];

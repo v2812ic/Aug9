@@ -144,7 +144,4 @@ private:
   double mass_{35.11};
   double b_{0.25};
   double dt_{0.00125}; // aqui se podría poner automático pero uf
-
-  std::ofstream offsets_file_;
-  const std::string offsets_path_{"experiment_data/offsets.txt"};
 };

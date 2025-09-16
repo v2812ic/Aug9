@@ -17,19 +17,30 @@ G1CoMXYTask::G1CoMXYTask(PinocchioRobotSystem *robot)
     : Task(robot, 2), feedback_source_(feedback_source::kCoMFeedback),
       icp_integrator_(nullptr), icp_lpf_(nullptr) {
   util::PrettyConstructor(3, "G1CoMXYTask");
-
   sp_ = G1StateProvider::GetStateProvider();
 
+  // Asegura directorio
+  try {
+    std::filesystem::create_directories(std::filesystem::path(offsets_path_).parent_path());
+  } catch (...) {
+    std::cerr << "[G1CoMXYTask] Warning: could not create directory for " << offsets_path_ << "\n";
+  }
+
+  // Abre en append usando la ruta miembro
+  offsets_file_.open(offsets_path_, std::ios::out | std::ios::app);
+  if (!offsets_file_) {
+    std::cerr << "[G1CoMXYTask] Warning: could not open " << offsets_path_ << " for writing.\n";
+  }
 #if B_USE_MATLOGGER
   // logger_ = XBot::MatLogger2::MakeLogger("/tmp/g1_icp_data");
 #endif
 }
-
 G1CoMXYTask::~G1CoMXYTask() {
   if (icp_integrator_ != nullptr)
     delete icp_integrator_;
   if (icp_lpf_ != nullptr)
     delete icp_lpf_;
+  if (offsets_file_) offsets_file_.close();
 }
 
 void G1CoMXYTask::UpdateOpCommand(const Eigen::Matrix3d &world_R_local) {
@@ -45,10 +56,19 @@ void G1CoMXYTask::UpdateOpCommand(const Eigen::Matrix3d &world_R_local) {
     f_ext_pure = Eigen::Map<const Eigen::VectorXd>(f_ext_.data(), f_ext_.size()).head<3>();
   }
   
-  Eigen::Vector3d offset_ = b_/mass_ * f_ext_pure;
+  Eigen::Vector3d offset_ = b_*b_/mass_ * f_ext_pure;
   //std::cout << offset_.transpose() << std::endl;
 
-  if (offsets_file_) offsets_file_ << offset_.transpose() << " " << sp_->current_time_ << "\n";
+  double ox = offset_[0];
+  double oy = offset_[1];
+  double oz = 0.0;  // <- requerido para MATLAB
+  double t_now = sp_->current_time_;
+
+  // Log al archivo: [ox oy oz t]
+  if (offsets_file_) {
+    offsets_file_ << std::setprecision(10)
+                  << ox << " " << oy << " " << oz << " " << t_now << "\n";
+  }
 
   pos_err_ = des_pos_ - offset_.head<2>() - pos_;
   vel_err_ = des_vel_ - vel_;
@@ -163,6 +183,7 @@ void G1CoMXYTask::UpdateOpCommand(const Eigen::Matrix3d &world_R_local) {
 #endif
   }
 }
+
 void G1CoMXYTask::UpdateJacobian() {
   jacobian_ = robot_->GetComLinJacobian().topRows<2>();
 }

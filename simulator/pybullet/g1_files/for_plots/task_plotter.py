@@ -2,18 +2,16 @@ import os
 import pandas as pd
 import matplotlib.pyplot as plt
 import itertools
-import re  # expresiones regulares
+import re
+import numpy as np
 
-# -----------------------------
-# Style Guide (Based on LaTeX tcolorbox)
-# -----------------------------
 STYLE_GUIDE = {
     'colors': {
-        'blue': '#4169E1',      # RoyalBlue
-        'green': '#3CB371',     # MediumSeaGreen
-        'orange': '#FF8C00',    # DarkOrange
-        'red': '#DC143C',       # Crimson
-        'purple': '#BA55D3',    # MediumOrchid
+        'blue': '#4169E1',
+        'green': '#3CB371',
+        'orange': '#FF8C00',
+        'red': '#DC143C',
+        'purple': '#BA55D3',
         'text': '#333333',
         'grid': '#CCCCCC'
     },
@@ -34,21 +32,33 @@ STYLE_GUIDE = {
     }
 }
 
-def _apply_time_window_df(df: pd.DataFrame, start_time: float, tcol: str = 't') -> pd.DataFrame:
-    """Devuelve df filtrado con t >= start_time. Si queda vacío, retorna el original."""
-    if df is None or tcol not in df.columns:
-        return df
-    dfw = df[df[tcol] >= float(start_time)]
-    return dfw if not dfw.empty else df
+def _load_offsets(path="experiment_data/offsets.txt"):
+    if not os.path.exists(path):
+        return None
+    try:
+        M = pd.read_csv(path, header=None, delim_whitespace=True)
+        if M.shape[1] < 4:
+            print(f"[plotter] Warning: {path} debe tener 4 columnas [ox oy oz t]. Ignorando offsets.")
+            return None
+        M = M.iloc[:, :4]
+        M.columns = ["ox", "oy", "oz", "t"]
+        M = M.replace([np.inf, -np.inf], np.nan).dropna()
+        if M.empty:
+            return None
+        M = M.drop_duplicates(subset="t", keep="first").sort_values("t")
+        if len(M) < 2:
+            print(f"[plotter] Warning: {path} no tiene suficientes muestras para interpolar.")
+            return None
+        return M
+    except Exception as e:
+        print(f"[plotter] Warning leyendo offsets: {e}")
+        return None
 
-def plotTasks(plot_from_zero = None, plot_from_time = 0.0):
-    """
-    Busca tasks en 'experiment_data/tasks', las grafica y guarda en 'plots/tasks'.
+def _is_com_xy_task(task_name: str) -> bool:
+    low = task_name.lower()
+    return ("com" in low) and ("xy" in low or "_x_" in low or "_y_" in low or low.endswith("_x_task") or low.endswith("_y_task") or "pos_task" in low)
 
-    Ventana temporal:
-      - plot_from_time: si se especifica, se grafica desde ese instante (s).
-      - si es None, se usa plot_from_zero (True -> 0.0 s, False -> 2.0 s).
-    """
+def plotTasks(plot_from_time: float = 0.0):
     print("--- Starting task plotting process ---")
     base_data_dir = "experiment_data/tasks"
     base_plot_dir = "plots/tasks"
@@ -56,7 +66,6 @@ def plotTasks(plot_from_zero = None, plot_from_time = 0.0):
 
     if not os.path.isdir(base_data_dir):
         print(f"Error: Data directory '{base_data_dir}' not found.")
-        print("Please ensure your C++ program has generated the data before running this script.")
         return
 
     try:
@@ -68,118 +77,249 @@ def plotTasks(plot_from_zero = None, plot_from_time = 0.0):
         print(f"Error: Directory '{base_data_dir}' does not exist.")
         return
 
-    # Etiquetas por defecto
     default_label_map = ['x', 'y', 'z', 'rx', 'ry', 'rz']
-    # Paleta (solo colores de curvas, sin texto ni grid)
-    curve_colors = [STYLE_GUIDE['colors'][k] for k in ['blue', 'green', 'orange', 'red', 'purple']]
+    plot_color_keys = ['blue', 'green', 'orange', 'red', 'purple']
+    plot_colors = [STYLE_GUIDE['colors'][k] for k in plot_color_keys]
+
+    def get_plot_labels(df, task_name_str):
+        if df is None:
+            return default_label_map
+        data_cols = [c for c in df.columns if c != 't']
+        if len(data_cols) == 1:
+            low = task_name_str.lower()
+            if low.endswith(('_x_task', '_x_pos_task', '_x_ori_task')):
+                return ['x']
+            if low.endswith(('_y_task', '_y_pos_task', '_y_ori_task')):
+                return ['y']
+            if low.endswith(('_z_task', '_z_pos_task', '_z_ori_task')):
+                return ['z']
+        return default_label_map
+
+    offsets_df_global = _load_offsets("experiment_data/offsets.txt")
 
     for task_name in task_list:
         print(f"Processing task: {task_name}...")
         task_data_dir = os.path.join(base_data_dir, task_name)
-        pos_err_path = os.path.join(task_data_dir, "pos_err.csv")
-        vel_err_path = os.path.join(task_data_dir, "vel_err.csv")
+        paths = {
+            "pos_err": os.path.join(task_data_dir, "pos_err.csv"),
+            "vel_err": os.path.join(task_data_dir, "vel_err.csv"),
+            "des_pos": os.path.join(task_data_dir, "des_pos.csv"),
+            "des_vel": os.path.join(task_data_dir, "des_vel.csv"),
+            "des_acc": os.path.join(task_data_dir, "des_acc.csv"),
+        }
 
         try:
-            has_pos = os.path.exists(pos_err_path)
-            has_vel = os.path.exists(vel_err_path)
-            if not has_pos and not has_vel:
+            dfs_raw = {k: (pd.read_csv(v) if os.path.exists(v) else None) for k, v in paths.items()}
+            if all(v is None for v in dfs_raw.values()):
                 print(f" -> Warning: No data files found for task '{task_name}'. Skipping.")
                 continue
 
-            df_pos_err = pd.read_csv(pos_err_path) if has_pos else None
-            df_vel_err = pd.read_csv(vel_err_path) if has_vel else None
+            def filter_by_time(df):
+                if df is None or 't' not in df.columns:
+                    return df
+                return df[df['t'] >= plot_from_time].reset_index(drop=True)
 
-            # ---- Ventana temporal (solo desde el inicio) ----
-            start_time = (float(plot_from_time) if plot_from_time is not None
-                          else (0.0 if plot_from_zero else 2.0))
-            df_pos_err = _apply_time_window_df(df_pos_err, start_time) if df_pos_err is not None else None
-            df_vel_err = _apply_time_window_df(df_vel_err, start_time) if df_vel_err is not None else None
+            dfs = {k: filter_by_time(v) for k, v in dfs_raw.items()}
 
-            fig, axes = plt.subplots(2, 1, figsize=STYLE_GUIDE['figure']['size'], sharex=True)
+            if not any(v is not None and not v.empty for v in dfs.values()):
+                print(f" -> Warning: No samples with t >= {plot_from_time} for task '{task_name}'. Skipping.")
+                continue
 
-            title_name = task_name.replace("_", " ").title()
-            title_name = title_name.replace("Com", "CoM").replace("Xy", "XY")
-            fig.suptitle(f'Task Errors: {title_name}',
-                         fontsize=STYLE_GUIDE['fonts']['suptitle'],
-                         color=STYLE_GUIDE['colors']['text'])
+            label_maps = {k: get_plot_labels(dfs[k], task_name) for k in dfs.keys()}
 
-            # --- Lógica de etiquetado inteligente ---
-            def get_plot_labels(df, task_name_str):
-                if df is None:
-                    return default_label_map
-                data_cols = [c for c in df.columns if c != 't']
-                if len(data_cols) == 1:  # tarea 1D
-                    low = task_name_str.lower()
-                    if low.endswith(('_x_task', '_x_pos_task', '_x_ori_task')):
-                        return ['x']
-                    if low.endswith(('_y_task', '_y_pos_task', '_y_ori_task')):
-                        return ['y']
-                    if low.endswith(('_z_task', '_z_pos_task', '_z_ori_task')):
-                        return ['z']
-                return default_label_map
+            # ---------- FIGURA DE ERRORES ----------
+            error_panels = []
+            if dfs["pos_err"] is not None and not dfs["pos_err"].empty:
+                error_panels.append(("pos_err", "Position Error", "Error [SI]"))
+            if dfs["vel_err"] is not None and not dfs["vel_err"].empty:
+                error_panels.append(("vel_err", "Velocity Error", "Error [SI]"))
 
-            pos_label_map = get_plot_labels(df_pos_err, task_name)
-            vel_label_map = get_plot_labels(df_vel_err, task_name)
+            if error_panels:
+                nrows = len(error_panels)
+                fig_err, axes_err = plt.subplots(nrows, 1, figsize=STYLE_GUIDE['figure']['size'], sharex=True)
+                if nrows == 1:
+                    axes_err = [axes_err]
 
-            # --- Posición ---
-            if df_pos_err is not None:
-                color_cycle = itertools.cycle(curve_colors)
-                for col in df_pos_err.columns:
-                    if col == 't':
-                        continue
-                    label = col
-                    match = re.search(r'\d+$', col)
-                    if match:
-                        idx = int(match.group(0))
-                        if idx < len(pos_label_map):
-                            label = pos_label_map[idx]
-                    axes[0].plot(df_pos_err['t'].to_numpy(),
-                                 df_pos_err[col].to_numpy(),
-                                 label=label,
-                                 color=next(color_cycle),
-                                 linewidth=STYLE_GUIDE['lines']['width'])
-                # xlim
-                axes[0].set_xlim(df_pos_err['t'].iloc[0], df_pos_err['t'].iloc[-1])
+                title_name = task_name.replace("_", " ").title().replace("Com", "CoM").replace("Xy", "XY")
+                fig_err.suptitle(title_name, fontsize=STYLE_GUIDE['fonts']['suptitle'], color=STYLE_GUIDE['colors']['text'])
 
-            axes[0].set_title("Position Error", fontsize=STYLE_GUIDE['fonts']['title'])
-            axes[0].set_ylabel("Error [SI]", fontsize=STYLE_GUIDE['fonts']['label'])
-            axes[0].legend(fontsize=STYLE_GUIDE['fonts']['legend'])
-            axes[0].grid(True, linestyle=STYLE_GUIDE['lines']['grid_style'], color=STYLE_GUIDE['colors']['grid'])
-            axes[0].tick_params(axis='both', which='major', labelsize=STYLE_GUIDE['fonts']['ticks'])
+                def plot_df(ax, df, label_map):
+                    color_cycle = itertools.cycle(plot_colors)
+                    for col in df.columns:
+                        if col == 't':
+                            continue
+                        label = col
+                        m = re.search(r'\d+$', col)
+                        if m:
+                            idx = int(m.group(0))
+                            if idx < len(label_map):
+                                label = label_map[idx]
+                        ax.plot(df['t'].to_numpy(), df[col].to_numpy(),
+                                label=label, color=next(color_cycle),
+                                linewidth=STYLE_GUIDE['lines']['width'])
 
-            # --- Velocidad ---
-            if df_vel_err is not None:
-                color_cycle = itertools.cycle(curve_colors)
-                for col in df_vel_err.columns:
-                    if col == 't':
-                        continue
-                    label = col
-                    match = re.search(r'\d+$', col)
-                    if match:
-                        idx = int(match.group(0))
-                        if idx < len(vel_label_map):
-                            label = vel_label_map[idx]
-                    axes[1].plot(df_vel_err['t'].to_numpy(),
-                                 df_vel_err[col].to_numpy(),
-                                 label=label,
-                                 color=next(color_cycle),
-                                 linewidth=STYLE_GUIDE['lines']['width'])
-                # xlim
-                axes[1].set_xlim(df_vel_err['t'].iloc[0], df_vel_err['t'].iloc[-1])
+                for ax, (key, ttl, ylab) in zip(axes_err, error_panels):
+                    plot_df(ax, dfs[key], label_maps[key])
+                    ax.set_title(ttl, fontsize=STYLE_GUIDE['fonts']['title'])
+                    ax.set_ylabel(ylab, fontsize=STYLE_GUIDE['fonts']['label'])
+                    ax.legend(fontsize=STYLE_GUIDE['fonts']['legend'], loc='upper right')
+                    ax.grid(True, linestyle=STYLE_GUIDE['lines']['grid_style'], color=STYLE_GUIDE['colors']['grid'])
+                    ax.tick_params(axis='both', which='major', labelsize=STYLE_GUIDE['fonts']['ticks'])
 
-            axes[1].set_title("Velocity Error", fontsize=STYLE_GUIDE['fonts']['title'])
-            axes[1].set_ylabel("Error [SI]", fontsize=STYLE_GUIDE['fonts']['label'])
-            axes[1].set_xlabel("Time [s]", fontsize=STYLE_GUIDE['fonts']['label'])
-            axes[1].legend(fontsize=STYLE_GUIDE['fonts']['legend'])
-            axes[1].grid(True, linestyle=STYLE_GUIDE['lines']['grid_style'], color=STYLE_GUIDE['colors']['grid'])
-            axes[1].tick_params(axis='both', which='major', labelsize=STYLE_GUIDE['fonts']['ticks'])
+                axes_err[-1].set_xlabel("Time [s]", fontsize=STYLE_GUIDE['fonts']['label'])
+                t_max_errors = max(df['t'].max() for (k, _, _) in error_panels for df in [dfs[k]] if df is not None and not df.empty)
+                for ax in axes_err:
+                    ax.set_xlim(plot_from_time, t_max_errors)
 
-            plt.tight_layout(rect=[0, 0.03, 1, 0.95])
+                plt.tight_layout(rect=[0, 0.03, 1, 0.95])
+                out_err = os.path.join(base_plot_dir, f"{task_name}_errors.pdf")
+                plt.savefig(out_err, dpi=STYLE_GUIDE['figure']['dpi'])
+                plt.close(fig_err)
+                print(f" -> Errors plot saved to: {out_err}")
+            else:
+                print(f" -> No error data to plot for '{task_name}'.")
 
-            output_path = os.path.join(base_plot_dir, f"{task_name}_errors.pdf")
-            plt.savefig(output_path, dpi=STYLE_GUIDE['figure']['dpi'])
-            plt.close(fig)
-            print(f" -> Plot saved to: {output_path}")
+            # ---------- FIGURA DE DESEADOS ----------
+            desired_panels = []
+            if dfs["des_pos"] is not None and not dfs["des_pos"].empty:
+                desired_panels.append(("des_pos", "Desired Position", "Value [SI]"))
+            if dfs["des_vel"] is not None and not dfs["des_vel"].empty:
+                desired_panels.append(("des_vel", "Desired Velocity", "Value [SI]"))
+            if dfs["des_acc"] is not None and not dfs["des_acc"].empty:
+                desired_panels.append(("des_acc", "Desired Acceleration", "Value [SI]"))
+
+            is_com_xy = _is_com_xy_task(task_name)
+            have_offsets = offsets_df_global is not None
+
+            if desired_panels:
+                if is_com_xy and have_offsets:
+                    desired_panels = [("offsets", "Offsets (ox, oy)", "Offset [SI]")] + desired_panels
+
+                nrows = len(desired_panels)
+                fig_des, axes_des = plt.subplots(nrows, 1, figsize=STYLE_GUIDE['figure']['size'], sharex=True)
+                if nrows == 1:
+                    axes_des = [axes_des]
+
+                title_name = task_name.replace("_", " ").title().replace("Com", "CoM").replace("Xy", "XY")
+                fig_des.suptitle(title_name, fontsize=STYLE_GUIDE['fonts']['suptitle'], color=STYLE_GUIDE['colors']['text'])
+
+                def plot_df(ax, df, label_map):
+                    color_cycle = itertools.cycle(plot_colors)
+                    for col in df.columns:
+                        if col == 't':
+                            continue
+                        label = col
+                        m = re.search(r'\d+$', col)
+                        if m:
+                            idx = int(m.group(0))
+                            if idx < len(label_map):
+                                label = label_map[idx]
+                        ax.plot(df['t'].to_numpy(), df[col].to_numpy(),
+                                label=label, color=next(color_cycle),
+                                linewidth=STYLE_GUIDE['lines']['width'])
+
+                # t_max para desired (incluyendo offsets si existen)
+                t_max_candidates = []
+                for key, _, _ in desired_panels:
+                    if key == "offsets" and have_offsets:
+                        t_off = offsets_df_global["t"].to_numpy()
+                        if t_off.size:
+                            t_max_candidates.append(t_off[t_off >= plot_from_time].max(initial=plot_from_time))
+                    else:
+                        dfk = dfs.get(key, None)
+                        if dfk is not None and not dfk.empty:
+                            t_max_candidates.append(dfk["t"].max())
+                t_max_desired = max(t_max_candidates) if t_max_candidates else plot_from_time
+
+                ax_idx = 0
+                for (key, ttl, ylab) in desired_panels:
+                    ax = axes_des[ax_idx]
+                    if key == "offsets":
+                        if have_offsets:
+                            if dfs["des_pos"] is not None and not dfs["des_pos"].empty:
+                                tq = dfs["des_pos"]["t"].to_numpy()
+                            else:
+                                tq = offsets_df_global["t"].to_numpy()
+                                tq = tq[tq >= plot_from_time]
+                            toff = offsets_df_global["t"].to_numpy()
+                            if tq.size and toff.size:
+                                ox = np.interp(tq, toff, offsets_df_global["ox"].to_numpy(),
+                                               left=offsets_df_global["ox"].iloc[0],
+                                               right=offsets_df_global["ox"].iloc[-1])
+                                oy = np.interp(tq, toff, offsets_df_global["oy"].to_numpy(),
+                                               left=offsets_df_global["oy"].iloc[0],
+                                               right=offsets_df_global["oy"].iloc[-1])
+                                ax.plot(tq, ox, label=r"$o_x$", linewidth=STYLE_GUIDE['lines']['width'])
+                                ax.plot(tq, oy, label=r"$o_y$", linewidth=STYLE_GUIDE['lines']['width'])
+                        ax.set_title(ttl, fontsize=STYLE_GUIDE['fonts']['title'])
+                        ax.set_ylabel(ylab, fontsize=STYLE_GUIDE['fonts']['label'])
+                        ax.legend(fontsize=STYLE_GUIDE['fonts']['legend'], loc='upper right')
+                        ax.grid(True, linestyle=STYLE_GUIDE['lines']['grid_style'], color=STYLE_GUIDE['colors']['grid'])
+                        ax.tick_params(axis='both', which='major', labelsize=STYLE_GUIDE['fonts']['ticks'])
+                    else:
+                        if key == "des_pos" and is_com_xy and have_offsets:
+                            df_here = dfs[key]
+                            if df_here is not None and not df_here.empty:
+                                tq = df_here["t"].to_numpy()
+                                toff = offsets_df_global["t"].to_numpy()
+                                ox = np.interp(tq, toff, offsets_df_global["ox"].to_numpy(),
+                                               left=offsets_df_global["ox"].iloc[0],
+                                               right=offsets_df_global["ox"].iloc[-1])
+                                oy = np.interp(tq, toff, offsets_df_global["oy"].to_numpy(),
+                                               left=offsets_df_global["oy"].iloc[0],
+                                               right=offsets_df_global["oy"].iloc[-1])
+
+                                data_cols = [c for c in df_here.columns if c != 't']
+                                color_cycle = itertools.cycle(plot_colors)
+
+                                if len(data_cols) >= 1:
+                                    c = next(color_cycle)
+                                    ax.plot(tq, df_here[data_cols[0]].to_numpy(),
+                                            label=r"$\mathrm{des}_{x}$", color=c,
+                                            linewidth=STYLE_GUIDE['lines']['width'])
+                                    ax.plot(tq, df_here[data_cols[0]].to_numpy() - ox,
+                                            label=r"$\mathrm{des}_{x}-o_x$", linestyle='--', color=c,
+                                            linewidth=STYLE_GUIDE['lines']['width'])
+                                if len(data_cols) >= 2:
+                                    c = next(color_cycle)
+                                    ax.plot(tq, df_here[data_cols[1]].to_numpy(),
+                                            label=r"$\mathrm{des}_{y}$", color=c,
+                                            linewidth=STYLE_GUIDE['lines']['width'])
+                                    ax.plot(tq, df_here[data_cols[1]].to_numpy() - oy,
+                                            label=r"$\mathrm{des}_{y}-o_y$", linestyle='--', color=c,
+                                            linewidth=STYLE_GUIDE['lines']['width'])
+                                if len(data_cols) >= 3:
+                                    c = next(color_cycle)
+                                    ax.plot(tq, df_here[data_cols[2]].to_numpy(),
+                                            label=r"$\mathrm{des}_{z}$", color=c,
+                                            linewidth=STYLE_GUIDE['lines']['width'])
+
+                                ax.set_title(ttl, fontsize=STYLE_GUIDE['fonts']['title'])
+                                ax.set_ylabel(ylab, fontsize=STYLE_GUIDE['fonts']['label'])
+                                ax.legend(fontsize=STYLE_GUIDE['fonts']['legend'], loc='upper right')
+                                ax.grid(True, linestyle=STYLE_GUIDE['lines']['grid_style'], color=STYLE_GUIDE['colors']['grid'])
+                                ax.tick_params(axis='both', which='major', labelsize=STYLE_GUIDE['fonts']['ticks'])
+                        else:
+                            plot_df(ax, dfs[key], label_maps[key])
+                            ax.set_title(ttl, fontsize=STYLE_GUIDE['fonts']['title'])
+                            ax.set_ylabel(ylab, fontsize=STYLE_GUIDE['fonts']['label'])
+                            ax.legend(fontsize=STYLE_GUIDE['fonts']['legend'], loc='upper right')
+                            ax.grid(True, linestyle=STYLE_GUIDE['lines']['grid_style'], color=STYLE_GUIDE['colors']['grid'])
+                            ax.tick_params(axis='both', which='major', labelsize=STYLE_GUIDE['fonts']['ticks'])
+
+                    ax_idx += 1
+
+                axes_des[-1].set_xlabel("Time [s]", fontsize=STYLE_GUIDE['fonts']['label'])
+                for ax in axes_des:
+                    ax.set_xlim(plot_from_time, t_max_desired)
+
+                plt.tight_layout(rect=[0, 0.03, 1, 0.95])
+                out_des = os.path.join(base_plot_dir, f"{task_name}_desired.pdf")
+                plt.savefig(out_des, dpi=STYLE_GUIDE['figure']['dpi'])
+                plt.close(fig_des)
+                print(f" -> Desired plot saved to: {out_des}")
+            else:
+                print(f" -> No desired data to plot for '{task_name}'.")
 
         except Exception as e:
             print(f" -> An unexpected error occurred while processing task '{task_name}': {e}")
