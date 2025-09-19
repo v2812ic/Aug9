@@ -57,10 +57,10 @@ class Config(object):
 
     smooth_forces = 0.1 # 0 a 1, hace que la aplicación de fuerzas no sea instantánea
 
-    link_idx_vec = [-1] # Este man tiene que coincidir cn la segmentacion que se haga de left-right-pelvis
+    link_idx_vec = [-1, 3, 4, 10, 11, 25] # Puntos de estimación de fuerzas
 
     
-    MAX_SIMULATION_TIME = 5.0  # seconds
+    #MAX_SIMULATION_TIME = 20  # seconds
     CONTROLLER_DT = 0.00125
     N_SUBSTEP = 1
 

@@ -60,6 +60,26 @@ flag_torque_limit = False
 from g1_files.take_actions import *
 
 def main():
+
+    # ====== Timeline del experimento ======
+    sim_state = {
+        "current_force_target": np.array([0.0, 0.0, 0.0]),
+        "t_force_start": 0.0,
+        "current_time": 0.0,
+    }
+
+    # Timeline del experimento con swaying y pausas
+    experiment_timeline = {
+        3.0:  start_walking,
+        3.5: set_frontal_force,
+        #15.0: reset_forces,
+        #20.0: set_lateral_force,
+        #25.0: reset_forces,
+        #30.0: set_combined_force, # <- Nueva fase
+        #35.0: reset_forces,         # <- Pausa final
+    }
+    executed_events = {t: False for t in experiment_timeline}
+
     # ====== Visualización / Sim ======
     pb.connect(pb.GUI)
     pb.configureDebugVisualizer(pb.COV_ENABLE_GUI, 0)
@@ -195,6 +215,9 @@ def main():
     com_pos_act_log = []
     com_vel_act_log = []
 
+    individual_wrenches_log = {idx: [] for idx in Config.link_idx_vec}
+    last_individual_wrenches = {idx: np.zeros(6) for idx in Config.link_idx_vec}
+
     # ====== Finalización/plots (para Ctrl+C) ======
     def finalize():
         try:
@@ -213,6 +236,7 @@ def main():
                     ori_right_log = ori_right_log,
                     f_ext_log = f_ext_log,
                     f_real_log = f_real_log,
+                    individual_wrenches_log = individual_wrenches_log
                     #f_A_r_log= f_A_r_log,
                     #f_D_r_log = f_D_r_log 
                 )
@@ -250,6 +274,7 @@ def main():
 
     # ====== Bucle principal ======
     while count*dt < Config.endSimulation or not Config.endSimulation:
+
         # --- Depuración: estados "ground truth" del base joint ---
         (base_joint_pos, base_joint_quat,
          base_joint_lin_vel, base_joint_ang_vel) = compute_base_joint_debug(
@@ -334,17 +359,48 @@ def main():
 
         tau_ext = get_tau_ext(dt, model, data, q_pin, v_pin, tau_c, tau_j)
 
-        if not test_ and count*dt > 4:
-            test_ = True
-            take_action_4()
-            print("Start here")
+        # --- Orquestador de la simulación ---
+        f_A_r, t_A_r, f_D_r, t_D_r = np.zeros(3), np.zeros(3), np.zeros(3), np.zeros(3)
+        f_real_ext_test = np.zeros(6)
+        
+        sim_state['current_time'] = count*dt
+        for event_time, action_function in experiment_timeline.items():
+            if sim_state['current_time'] >= event_time and not executed_events[event_time]:
+                action_function(sim_state) # Pasamos el diccionario de estado
+                executed_events[event_time] = True
+        f_real_ext_test = apply_external_forces(
+            g1_humanoid,
+            sim_state['current_time'],
+            p_app = [0, 0, 0.1],
+            p_app_frame="LINK",
+            link_idx = 3,
+            F_target=sim_state['current_force_target'],
+            t_on=sim_state['t_force_start'],
+            model=model, data=data, q_pin=q_pin, com=com_W
+        )
+        aux = apply_external_forces(
+            g1_humanoid,
+            sim_state['current_time'],
+            p_app = [0, 0, -0.1],
+            p_app_frame="LINK",
+            link_idx = 10,
+            F_target= -2*np.array(sim_state['current_force_target']),
+            t_on=sim_state['t_force_start'],
+            model=model, data=data, q_pin=q_pin, com=com_W
+        )
+
+        f_real_ext_test += aux
 
         # --- Solver de fuerzas en las piernas
         if not count % Config.solver_frequency:
             aux = com_W.copy()
             aux[2] -= 0.078
-            f_ext = solve_force(Config.link_idx_vec, aux, tau_ext, g1_humanoid, model, data, q_pin)
-            
+            f_ext, individual_wrenches = solve_force(
+                Config.link_idx_vec, aux, tau_ext, g1_humanoid, model, data, q_pin
+            )
+
+            if individual_wrenches:
+                last_individual_wrenches = individual_wrenches
             #print("globals: ", f_ext_local)
             #f_ext = group_tripod(f_ext_local, g1_humanoid, Config.link_idx_vec, Config.left_ids, Config.right_ids, Config.pelvis_ids, ref_W = com_W)
 
@@ -360,21 +416,6 @@ def main():
 
         # --- Aplicacion de fuerzas ---
         #water.update_params()
-
-        f_A_r, t_A_r, f_D_r, t_D_r = np.zeros(3), np.zeros(3), np.zeros(3), np.zeros(3)
-        f_real_ext_test = np.zeros(6)
-
-        if count * dt > Config.initForce:
-            #f_A_r, t_A_r = sections.apply_archimedes(g1_humanoid, com_W, count*dt, water)
-            #f_D_r, t_D_r = sections.apply_drag(g1_humanoid, com_W, count*dt, water)
-            f_real_ext_test = apply_external_forces(g1_humanoid, count*dt, model= model, data = data, q_pin= q_pin) # si aplica
-            #print ("Fuerza externa: ", f_real_ext_test[0], "N")
-            pass
-
-        ''' TEST DE EQUILIBRIO'''
-
-
-        '''FIN DE TEST DE EQUILIBRIO'''
 
         # Informacion varia de la posicion y orientacion del pie
         pos_left, ori_left = pb.getLinkState(g1_humanoid, 6)[0], pb.getLinkState(g1_humanoid, 6)[1]
@@ -402,6 +443,9 @@ def main():
 
         com_pos_act_log.append(com_W)
         com_vel_act_log.append(comd_W)
+
+        for idx in Config.link_idx_vec:
+            individual_wrenches_log[idx].append(last_individual_wrenches[idx])
 
         # --- Step ---
         pb.stepSimulation()

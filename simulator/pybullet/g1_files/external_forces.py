@@ -75,40 +75,57 @@ def wrench_about_com_from_application_point(robot, link_idx, F_world, M_world, p
 
 # -----------------------------
 # Aplicación del wrench
-# -----------------------------
+
 def apply_wrench(robot, link_idx, F_world, M_world, p_app, frame="WORLD"):
     """
-    Aplica F y M en el punto p_app (en 'frame' indicado).
-      - frame == "WORLD": p_app es WORLD, F/M interpretados en WORLD
-      - frame == "LINK" : p_app es local al link, F/M interpretados en LINK
+    Aplica F y M (siempre en WORLD) en el punto p_app (interpretado en 'frame').
+    Esta versión es robusta y corrige la inconsistencia de los flags de PyBullet.
     """
+    F_world_list = np.asarray(F_world, float).tolist()
+    M_world_list = np.asarray(M_world, float).tolist()
+    p_app_list = np.asarray(p_app, float).tolist()
+
+    # PyBullet interpreta el vector de FUERZA y TORQUE según el último flag.
+    # La convención es pasarle vectores en WORLD y dejar que él haga la
+    # transformación si el PUNTO DE APLICACIÓN es local.
+    
     if frame.upper() == "WORLD":
-        pb.applyExternalForce(robot, link_idx, np.asarray(F_world, float).tolist(),
-                              np.asarray(p_app, float).tolist(), pb.WORLD_FRAME)
-        pb.applyExternalTorque(robot, link_idx, np.asarray(M_world, float).tolist(),
-                               pb.WORLD_FRAME)
+        # Vector de fuerza en WORLD, punto de aplicación en WORLD.
+        pb.applyExternalForce(robot, link_idx, F_world_list, p_app_list, pb.WORLD_FRAME)
+        pb.applyExternalTorque(robot, link_idx, M_world_list, pb.WORLD_FRAME)
+    
     elif frame.upper() == "LINK":
-        pb.applyExternalForce(robot, link_idx, np.asarray(F_world, float).tolist(),
-                              np.asarray(p_app, float).tolist(), pb.LINK_FRAME)
-        pb.applyExternalTorque(robot, link_idx, np.asarray(M_world, float).tolist(),
-                               pb.LINK_FRAME)
+        # A PyBullet se le pasa el PUNTO en LINK, pero el VECTOR de fuerza sigue
+        # siendo en WORLD. Es una peculiaridad de la API. Para aplicar una
+        # fuerza local, tendríamos que rotarla primero.
+        # Para evitar ambigüedad, forzamos que la fuerza siempre sea WORLD.
+        
+        # Obtenemos la pose del link para convertir el punto local a global.
+        pos_w, orn_w = get_link_pose_world(robot, link_idx)
+        p_app_world = np.asarray(pos_w) + _quat_rotate(orn_w, p_app)
+        
+        # Aplicamos la fuerza WORLD en el punto ya convertido a WORLD.
+        pb.applyExternalForce(robot, link_idx, F_world_list, p_app_world.tolist(), pb.WORLD_FRAME)
+        pb.applyExternalTorque(robot, link_idx, M_world_list, pb.WORLD_FRAME)
     else:
         raise ValueError("frame must be 'WORLD' or 'LINK'")
+
 
 # -----------------------------
 # API principal para tu sim
 # -----------------------------
 def apply_external_forces(
     robot, t, *,
-    link_idx=-1,
-    F_target=np.array([-0.0, 0.0, 0.0]),
+    link_idx=3,
+    F_target=np.array([0.0, 25.0, 0.0]),
     M_target=np.array([0.0, 0.0, 0.0]),
     p_app=None,
-    p_app_frame="LINK",
-    t_on=2.0,
-    ramp=100,
+    p_app_frame="WORLD",
+    t_on=3.0,
+    ramp=10,
     # NUEVO: para referir todo al CoM GLOBAL
     model=None, data=None, q_pin=None,
+    com = None,
     return_wrench_about="COM_GLOBAL",
 ):
     """
@@ -122,6 +139,8 @@ def apply_external_forces(
         s = (2.0/np.pi)*np.arctan(ramp*(t - t_on))
         F = F_target * s
         M = M_target * s
+
+        #print(F.transpose(), " N")
 
         # p_app por defecto
         if p_app is None:
@@ -139,9 +158,14 @@ def apply_external_forces(
 
         # === NUEVO: Momento respecto al CoM GLOBAL ===
         # Asegura cinemática al día
-        pin.forwardKinematics(model, data, q_pin)
-        pin.updateFramePlacements(model, data)
-        p_com_global = np.asarray(pin.centerOfMass(model, data, q_pin)).reshape(3,)
+        
+        if com is not None:
+            pin.forwardKinematics(model, data, q_pin)
+            pin.updateFramePlacements(model, data)
+            p_com_global = np.asarray(pin.centerOfMass(model, data, q_pin)).reshape(3,)
+        else:
+            p_com_global = com
+    
         M_global = M + np.cross(p_app_world - p_com_global, F)
 
         return np.concatenate([F, M_global])
