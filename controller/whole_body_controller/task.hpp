@@ -193,9 +193,9 @@ public:
     io::CsvWriter::append_row(base + "/des_vel.csv",  vec_header("des_vel",  des_vel_.size()),  vec_row(des_vel_));
     io::CsvWriter::append_row(base + "/des_acc.csv",  vec_header("des_acc",  des_acc_.size()),  vec_row(des_acc_));
 
-    //io::CsvWriter::append_row(base + "/local_des_pos.csv", vec_header("local_des_pos",  local_des_pos_.size()), vec_row(local_des_pos_));
-    //io::CsvWriter::append_row(base + "/local_des_vel.csv", vec_header("local_des_vel",  local_des_vel_.size()), vec_row(local_des_vel_));
-    //io::CsvWriter::append_row(base + "/local_des_acc.csv", vec_header("local_des_acc",  local_des_acc_.size()), vec_row(local_des_acc_));
+    io::CsvWriter::append_row(base + "/local_des_pos.csv", vec_header("local_des_pos",  local_des_pos_.size()), vec_row(local_des_pos_));
+    io::CsvWriter::append_row(base + "/local_des_vel.csv", vec_header("local_des_vel",  local_des_vel_.size()), vec_row(local_des_vel_));
+    io::CsvWriter::append_row(base + "/local_des_acc.csv", vec_header("local_des_acc",  local_des_acc_.size()), vec_row(local_des_acc_));
 
     //io::CsvWriter::append_row(base + "/pos.csv",      vec_header("pos",      pos_.size()),      vec_row(pos_));
     //io::CsvWriter::append_row(base + "/vel.csv",      vec_header("vel",      vel_.size()),      vec_row(vel_));

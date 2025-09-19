@@ -4,6 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
 from matplotlib.patches import Patch
+from matplotlib.patches import Rectangle
 
 # ===============================================================
 # Unified Style (bigger fonts; no legend/title in the final plot)
@@ -35,7 +36,7 @@ STYLE_GUIDE = {
 # Parameters
 # ===============================================================
 # Foot geometry (half-lengths of the support rectangle)
-X = 0.06    # half-length (m)
+X = 0.07   # half-length (m)
 Y = 0.02   # half-width  (m)
 
 # Friction
@@ -47,24 +48,24 @@ fz_max = 1500.0
 # Robot / LIPM parameters
 m   = 35.11   # mass (kg)
 g   = 9.81    # gravity (m/s^2)
-z_c = 0.6    # CoM height (m)
+z_c = 0.53    # CoM height (m)
 b_sq = z_c / g
 
 # Nominal fz (body weight)
 fz_nominal = m * g
 
 # Reference CoP position in the local foot frame (no y asymmetry)
-y_cop = 0.0
-x_cop = 0.0
-z_cop = 0.6
+y_cop = 0.01
+x_cop = -0.03
+z_cop = 0.53
 
 # OFFSET: vector d = O' -> O (moves O' to geometric center O)
 dx, dy, dz = 0.02, 0.0, 0.0
 
 # Search range for (fx, fy) and resolution
 N = 100
-fx_lim = 150.0
-fy_lim = 150.0
+fx_lim = 300.0
+fy_lim = 300.0
 fx_vals = np.linspace(-fx_lim, fx_lim, N)
 fy_vals = np.linspace(-fy_lim, fy_lim, N)
 
@@ -158,9 +159,9 @@ def feasible_mask_single_foot(fx_vals, fy_vals, m, g, b_sq, x_cop, y_cop, z_cop)
             fy = FY[i, j]
 
             # Entire wrench is supported by a single foot
-            f_x = -fx/2
-            f_y = -fy/2
-            f_z = -fz_base/2
+            f_x = -fx
+            f_y = -fy
+            f_z = -fz_base
             
             f = np.array([f_x, f_y, f_z])
             p = -np.array([x_cop, y_cop, z_cop])
@@ -247,6 +248,54 @@ ax.grid(True, linestyle=STYLE_GUIDE['lines']['grid_style'], color=STYLE_GUIDE['c
 ax.tick_params(axis='both', which='major', labelsize=STYLE_GUIDE['fonts']['ticks'])
 ax.axhline(0, color='black', linewidth=0.7)
 ax.axvline(0, color='black', linewidth=0.7)
+
+L_slip = m * g * mu  # 35.11 * 9.81 * 0.7 ≈ 241.10 N
+square = Rectangle(
+    (-L_slip, -L_slip), 2*L_slip, 2*L_slip,
+    fill=False,
+    linewidth=STYLE_GUIDE['lines']['width'],
+    linestyle=':',
+    edgecolor=STYLE_GUIDE['colors']['red']
+)
+ax.add_patch(square)
+# etiqueta en la esquina superior-derecha del cuadrado
+ax.text(
+    L_slip, L_slip, "slippage limit",
+    ha='right', va='bottom',
+    fontsize=STYLE_GUIDE['fonts']['label'],
+    color=STYLE_GUIDE['colors']['red']
+)
+
+sim_y = 73.0
+for yline in (+sim_y, -sim_y):
+    ax.axhline(
+        yline,
+        color=STYLE_GUIDE['colors']['orange'],
+        linestyle='-.',
+        linewidth=STYLE_GUIDE['lines']['width']
+    )
+# etiqueta (horizontal, sin rotación) cerca del borde derecho
+x_max = fx_vals.max()
+ax.text(
+    x_max - 200.0, sim_y, "simulated limit",
+    ha='right', va='bottom',
+    fontsize=STYLE_GUIDE['fonts']['label'],
+    color=STYLE_GUIDE['colors']['orange']
+)
+
+# 3) Simulated limit (vertical): x = -70 y x = +180
+x_neg = -70.0
+x_pos = 180.0
+for xline in (x_neg, x_pos):
+    ax.axvline(
+        xline,
+        color=STYLE_GUIDE['colors']['orange'],
+        linestyle='-.',
+        linewidth=STYLE_GUIDE['lines']['width']
+    )
+# etiqueta (vertical, rotada 90°) cerca del borde superior
+y_max = fy_vals.max()
+
 
 # Save vector PDF and show
 out_path = "plots/cwc/cwc_Fx_Fy_single.pdf"

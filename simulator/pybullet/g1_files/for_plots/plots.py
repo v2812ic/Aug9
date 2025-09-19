@@ -185,7 +185,10 @@ def _quat_series_to_euler_zyx(quat_series, degrees=True):
 # Base Plotting Functions
 # -----------------------------
 def _plot_vector_series(t, Y, title, xlabel, ylabel, labels, filename, yscale=None,
-                        colors=None, linestyles=None):
+                        ylim=None, legend_pos='best', colors=None, linestyles=None):
+    """
+    ... (docstring remains the same) ...
+    """
     Y = _ensure_2d(Y)
     if Y is None or Y.size == 0: return
     T, D = Y.shape
@@ -211,12 +214,27 @@ def _plot_vector_series(t, Y, title, xlabel, ylabel, labels, filename, yscale=No
     ax.set_title(title, fontsize=STYLE_GUIDE['fonts']['title'], color=STYLE_GUIDE['colors']['text'])
     ax.tick_params(axis='both', which='major', labelsize=STYLE_GUIDE['fonts']['ticks'])
     ax.grid(True, linestyle=STYLE_GUIDE['lines']['grid_style'], color=STYLE_GUIDE['colors']['grid'])
+    
+    # --- MODIFIED LEGEND AND YLIM LOGIC ---
     if D > 1 or (D == 1 and labels[0] is not None):
-        ncol = 1 if D <= 6 else 2 if D <= 12 else 3
-        ax.legend(loc='best', fontsize=STYLE_GUIDE['fonts']['legend'], ncol=ncol)
+        if legend_pos == 'outside':
+            # Place a compact, 3-column legend above the plot area
+            ax.legend(loc='upper center', bbox_to_anchor=(0.5, 1.18),
+                      ncol=3, fancybox=True, shadow=False,
+                      fontsize=STYLE_GUIDE['fonts']['legend'])
+            # Adjust subplot parameters to make room for the legend
+            fig.subplots_adjust(top=0.82)
+        else:
+            # Original behavior
+            ncol = 1 if D <= 6 else 2 if D <= 12 else 3
+            ax.legend(loc=legend_pos, fontsize=STYLE_GUIDE['fonts']['legend'], ncol=ncol)
+
     if yscale: ax.set_yscale(yscale)
+    if ylim is not None: ax.set_ylim(ylim) # <-- ADDED: Apply ylim if provided
+    
     ax.set_xlim(t[0], t[-1])
-    fig.tight_layout()
+    # Use fig.tight_layout() after adjustments
+    fig.tight_layout(rect=[0, 0, 1, 0.95] if legend_pos == 'outside' else None)
     plt.savefig(filename)
     plt.close(fig)
 
@@ -244,7 +262,88 @@ def _apply_time_window(t, arr_like, start_time=0.0):
     if arr.ndim == 2 and arr.shape[0] == t.size: return t[mask], arr[mask]
     if arr.ndim == 3 and arr.shape[1] == t.size: return t[mask], arr[:, mask, :]
     return t, arr_like
+def get_total_grf_left(cf_left_log):
+    """
+    Suma las fuerzas de reacción (GRF) de los 4 puntos de contacto del pie izquierdo.
 
+    Args:
+        cf_left_log (list): El log de fuerzas de contacto para el pie izquierdo,
+                            donde cada entrada es una lista de wrenches.
+
+    Returns:
+        np.ndarray: Un array de NumPy de forma (N, 3) con la fuerza total [Fx, Fy, Fz]
+                    en el pie izquierdo para cada instante de tiempo N.
+    """
+    # Extrae las fuerzas del log. El resultado tiene forma (4, N, 3)
+    # donde 4 es el número de sensores, N los pasos de tiempo.
+    forces_left = _extract_forces_from_contact_log(cf_left_log)
+    
+    # Suma a lo largo del eje de los sensores (axis=0) para obtener la fuerza total.
+    total_force_left = np.sum(forces_left, axis=0)
+    
+    return total_force_left
+
+def get_total_grf_right(cf_right_log):
+    """
+    Suma las fuerzas de reacción (GRF) de los 4 puntos de contacto del pie derecho.
+
+    Args:
+        cf_right_log (list): El log de fuerzas de contacto para el pie derecho,
+                             donde cada entrada es una lista de wrenches.
+
+    Returns:
+        np.ndarray: Un array de NumPy de forma (N, 3) con la fuerza total [Fx, Fy, Fz]
+                    en el pie derecho para cada instante de tiempo N.
+    """
+    # Extrae las fuerzas del log. El resultado tiene forma (4, N, 3)
+    forces_right = _extract_forces_from_contact_log(cf_right_log)
+    
+    # Suma a lo largo del eje de los sensores (axis=0) para obtener la fuerza total.
+    total_force_right = np.sum(forces_right, axis=0)
+    
+    return total_force_right
+
+def get_total_grm_left(cf_left_log):
+    """
+    Suma las fuerzas de reacción (GRF) de los 4 puntos de contacto del pie izquierdo.
+
+    Args:
+        cf_left_log (list): El log de fuerzas de contacto para el pie izquierdo,
+                            donde cada entrada es una lista de wrenches.
+
+    Returns:
+        np.ndarray: Un array de NumPy de forma (N, 3) con la fuerza total [Fx, Fy, Fz]
+                    en el pie izquierdo para cada instante de tiempo N.
+    """
+    # Extrae las fuerzas del log. El resultado tiene forma (4, N, 3)
+    # donde 4 es el número de sensores, N los pasos de tiempo.
+    forces_left = _extract_moments_from_contact_log(cf_left_log)
+    
+    # Suma a lo largo del eje de los sensores (axis=0) para obtener la fuerza total.
+    total_force_left = np.sum(forces_left, axis=0)
+    
+    return total_force_left
+
+def get_total_grm_right(cf_left_log):
+    """
+    Suma las fuerzas de reacción (GRF) de los 4 puntos de contacto del pie izquierdo.
+
+    Args:
+        cf_left_log (list): El log de fuerzas de contacto para el pie izquierdo,
+                            donde cada entrada es una lista de wrenches.
+
+    Returns:
+        np.ndarray: Un array de NumPy de forma (N, 3) con la fuerza total [Fx, Fy, Fz]
+                    en el pie izquierdo para cada instante de tiempo N.
+    """
+    # Extrae las fuerzas del log. El resultado tiene forma (4, N, 3)
+    # donde 4 es el número de sensores, N los pasos de tiempo.
+    forces_left = _extract_moments_from_contact_log(cf_left_log)
+    
+    # Suma a lo largo del eje de los sensores (axis=0) para obtener la fuerza total.
+    total_force_left = np.sum(forces_left, axis=0)
+
+    return total_force_left
 # -----------------------------
 # Plot foot contact wrenches
 # -----------------------------
@@ -360,13 +459,173 @@ def _plot_grm_xyz_one_foot(time_arr, moments_foot, foot_name, outdir):
     ax.legend(loc="upper right", fontsize=STYLE_GUIDE['fonts']['legend']); fig.tight_layout()
     _safe_makedirs_for(os.path.join(outdir, "dummy.txt")); plt.savefig(os.path.join(outdir, f"grm_{foot_name.lower()}_xyz.pdf")); plt.close(fig)
 
+def _plot_individual_contributions(time_arr, individual_wrenches_log, outdir, plot_from_time):
+    """
+    Genera gráficos de las contribuciones de fuerza y momento de cada link.
+    Usa el STYLE_GUIDE y las funciones de ayuda del script.
+    """
+    if not individual_wrenches_log:
+        print("[plots] No se encontraron datos de contribuciones individuales para graficar.")
+        return
+
+    # Usar un generador de colores para los distintos links
+    from matplotlib import cm
+    color_cycle = [cm.get_cmap('tab10')(i) for i in range(10)]
+
+    link_ids = list(individual_wrenches_log.keys())
+    
+    # Preparar datos usando las funciones de ayuda existentes
+    t_full = _resolve_time(time_arr, len(next(iter(individual_wrenches_log.values()))))
+    t, _ = _apply_time_window(t_full, None, start_time=plot_from_time)
+
+    wrench_data = {}
+    for link_id in link_ids:
+        _, wrench_data[link_id] = _apply_time_window(
+            t_full,
+            _ensure_2d(individual_wrenches_log[link_id]),
+            start_time=plot_from_time
+        )
+
+    # --- Gráfico de Contribuciones de FUERZA ---
+    fig_f, axes_f = plt.subplots(3, 1, figsize=STYLE_GUIDE['figure']['size_tall'], sharex=True)
+    fig_f.suptitle('Individual Link Force Contributions at CoM', fontsize=STYLE_GUIDE['fonts']['suptitle'])
+    
+    force_labels = [r"$F_x$ [N]", r"$F_y$ [N]", r"$F_z$ [N]"]
+    for i in range(3):  # Fx, Fy, Fz
+        for j, link_id in enumerate(link_ids):
+            axes_f[i].plot(t, wrench_data[link_id][:, i],
+                           label=f'Link {link_id}',
+                           color=color_cycle[j % len(color_cycle)],
+                           linewidth=STYLE_GUIDE['lines']['width'])
+        axes_f[i].set_ylabel(force_labels[i], fontsize=STYLE_GUIDE['fonts']['label'])
+        axes_f[i].grid(True, linestyle=STYLE_GUIDE['lines']['grid_style'], color=STYLE_GUIDE['colors']['grid'])
+        axes_f[i].legend(loc='best', fontsize=STYLE_GUIDE['fonts']['legend'])
+        axes_f[i].tick_params(axis='both', which='major', labelsize=STYLE_GUIDE['fonts']['ticks'])
+
+    axes_f[-1].set_xlabel('Time [s]', fontsize=STYLE_GUIDE['fonts']['label'])
+    axes_f[-1].set_xlim(t[0], t[-1])
+    fig_f.tight_layout(rect=[0, 0.03, 1, 0.96])
+    fig_f.savefig(os.path.join(outdir, "individual_forces.pdf"))
+
+    # --- Gráfico de Contribuciones de MOMENTO ---
+    fig_m, axes_m = plt.subplots(3, 1, figsize=STYLE_GUIDE['figure']['size_tall'], sharex=True)
+    fig_m.suptitle('Individual Link Moment Contributions at CoM', fontsize=STYLE_GUIDE['fonts']['suptitle'])
+    
+    moment_labels = [r"$M_x$ [N·m]", r"$M_y$ [N·m]", r"$M_z$ [N·m]"]
+    for i in range(3):  # Mx, My, Mz
+        for j, link_id in enumerate(link_ids):
+            axes_m[i].plot(t, wrench_data[link_id][:, i+3],
+                           label=f'Link {link_id}',
+                           color=color_cycle[j % len(color_cycle)],
+                           linewidth=STYLE_GUIDE['lines']['width'])
+        axes_m[i].set_ylabel(moment_labels[i], fontsize=STYLE_GUIDE['fonts']['label'])
+        axes_m[i].grid(True, linestyle=STYLE_GUIDE['lines']['grid_style'], color=STYLE_GUIDE['colors']['grid'])
+        axes_m[i].legend(loc='best', fontsize=STYLE_GUIDE['fonts']['legend'])
+        axes_m[i].tick_params(axis='both', which='major', labelsize=STYLE_GUIDE['fonts']['ticks'])
+
+    axes_m[-1].set_xlabel('Time [s]', fontsize=STYLE_GUIDE['fonts']['label'])
+    axes_m[-1].set_xlim(t[0], t[-1])
+    fig_m.tight_layout(rect=[0, 0.03, 1, 0.96])
+    fig_m.savefig(os.path.join(outdir, "individual_moments.pdf"))
+    
+    plt.close('all')
+    print(f"[plots] Gráficos de contribuciones individuales guardados en: {outdir}")
+
+
+def plot_summed_grf(time_arr, summed_forces, foot_name, outdir):
+    """
+    Grafica la suma de las fuerzas de reacción de un pie (Fx, Fy, Fz) a lo largo del tiempo.
+
+    Args:
+        time_arr (array-like): El vector de tiempo.
+        summed_forces (np.ndarray): Array de NumPy de forma (N, 3) con las fuerzas totales.
+        foot_name (str): Nombre del pie ("Left" o "Right") para títulos y nombres de archivo.
+        outdir (str): Directorio donde se guardará la gráfica.
+    """
+    t = np.asarray(time_arr).reshape(-1)
+    F_FOOT = np.asarray(summed_forces)
+    
+    # Asegurarse de que los datos tengan la forma correcta
+    if F_FOOT.ndim != 2 or F_FOOT.shape[1] != 3 or F_FOOT.shape[0] != t.shape[0]:
+        print(f"Error: La forma de los datos de fuerza para {foot_name} es incorrecta. Se esperaba ({len(t)}, 3) pero se obtuvo {F_FOOT.shape}")
+        return
+
+    fig, ax = plt.subplots(figsize=STYLE_GUIDE['figure']['size_wide'])
+    
+    # Graficar cada componente de la fuerza
+    ax.plot(t, F_FOOT[:, 0], label=rf"$F_x$ Total", lw=STYLE_GUIDE['lines']['width'], color=STYLE_GUIDE['colors']['blue'])
+    ax.plot(t, F_FOOT[:, 1], label=rf"$F_y$ Total", lw=STYLE_GUIDE['lines']['width'], color=STYLE_GUIDE['colors']['green'])
+    ax.plot(t, F_FOOT[:, 2], label=rf"$F_z$ Total", lw=STYLE_GUIDE['lines']['width'], color=STYLE_GUIDE['colors']['orange'])
+    
+    # Estilo y etiquetas
+    ax.set_xlabel("Time (s)", fontsize=STYLE_GUIDE['fonts']['label'])
+    ax.set_ylabel("Force [N]", fontsize=STYLE_GUIDE['fonts']['label'])
+    ax.set_title(f"Total Ground Reaction Force – {foot_name} Foot", fontsize=STYLE_GUIDE['fonts']['title'], color=STYLE_GUIDE['colors']['text'])
+    ax.grid(True, linestyle=STYLE_GUIDE['lines']['grid_style'], color=STYLE_GUIDE['colors']['grid'])
+    ax.tick_params(axis='both', which='major', labelsize=STYLE_GUIDE['fonts']['ticks'])
+    ax.set_xlim(t[0], t[-1])
+    ax.legend(loc="upper right", fontsize=STYLE_GUIDE['fonts']['legend'])
+    fig.tight_layout()
+    
+    # Guardar la figura
+    filename = os.path.join(outdir, f"grf_total_summed_{foot_name.lower()}.pdf")
+    _safe_makedirs_for(filename)
+    plt.savefig(filename)
+    plt.close(fig)
+
+def plot_summed_grm(time_arr, summed_forces, foot_name, outdir):
+    """
+    Grafica la suma de las fuerzas de reacción de un pie (Fx, Fy, Fz) a lo largo del tiempo.
+
+    Args:
+        time_arr (array-like): El vector de tiempo.
+        summed_forces (np.ndarray): Array de NumPy de forma (N, 3) con las fuerzas totales.
+        foot_name (str): Nombre del pie ("Left" o "Right") para títulos y nombres de archivo.
+        outdir (str): Directorio donde se guardará la gráfica.
+    """
+    t = np.asarray(time_arr).reshape(-1)
+    F_FOOT = np.asarray(summed_forces)
+    
+    # Asegurarse de que los datos tengan la forma correcta
+    if F_FOOT.ndim != 2 or F_FOOT.shape[1] != 3 or F_FOOT.shape[0] != t.shape[0]:
+        print(f"Error: La forma de los datos de fuerza para {foot_name} es incorrecta. Se esperaba ({len(t)}, 3) pero se obtuvo {F_FOOT.shape}")
+        return
+
+    fig, ax = plt.subplots(figsize=STYLE_GUIDE['figure']['size_wide'])
+    
+    # Graficar cada componente de la fuerza
+    ax.plot(t, F_FOOT[:, 0], label=rf"$M_x$ Total", lw=STYLE_GUIDE['lines']['width'], color=STYLE_GUIDE['colors']['blue'])
+    ax.plot(t, F_FOOT[:, 1], label=rf"$M_y$ Total", lw=STYLE_GUIDE['lines']['width'], color=STYLE_GUIDE['colors']['green'])
+    ax.plot(t, F_FOOT[:, 2], label=rf"$M_z$ Total", lw=STYLE_GUIDE['lines']['width'], color=STYLE_GUIDE['colors']['orange'])
+    
+    # Estilo y etiquetas
+    ax.set_xlabel("Time (s)", fontsize=STYLE_GUIDE['fonts']['label'])
+    ax.set_ylabel("Moment [N·m]", fontsize=STYLE_GUIDE['fonts']['label'])
+    ax.set_title(f"Total Ground Reaction Moment – {foot_name} Foot", fontsize=STYLE_GUIDE['fonts']['title'], color=STYLE_GUIDE['colors']['text'])
+    ax.grid(True, linestyle=STYLE_GUIDE['lines']['grid_style'], color=STYLE_GUIDE['colors']['grid'])
+    ax.tick_params(axis='both', which='major', labelsize=STYLE_GUIDE['fonts']['ticks'])
+    ax.set_xlim(t[0], t[-1])
+    ax.legend(loc="upper right", fontsize=STYLE_GUIDE['fonts']['legend'])
+    fig.tight_layout()
+    
+    # Guardar la figura
+    filename = os.path.join(outdir, f"grm_total_summed_{foot_name.lower()}.pdf")
+    _safe_makedirs_for(filename)
+    plt.savefig(filename)
+    plt.close(fig)
 # -----------------------------
 # Public API
 # -----------------------------
 def make_plots(
     outdir="plots/general", *, time=None, dt=None, tau_ext=None, cf_left_log=None, cf_right_log=None,
     pos_left_log=None, pos_right_log=None, ori_left_log=None, ori_right_log=None, f_ext_log=None,
-    f_real_log=None, f_A_r_log=None, f_D_r_log=None, plot_from_zero=True, plot_from_time=None, **_ignore):
+    f_real_log=None, f_A_r_log=None, f_D_r_log=None,
+    # --- NUEVO ARGUMENTO ---
+    individual_wrenches_log=None,
+    plot_from_zero=True, plot_from_time=None, **_ignore):
+
+    os.makedirs(outdir, exist_ok=True)
+    print("--- Generating all plots...")
 
     os.makedirs(outdir, exist_ok=True)
     print("--- Generating all plots...")
@@ -416,8 +675,21 @@ def make_plots(
 
     # ---------- Contactos (fuerzas y momentos) ----------
     if cf_left_log is not None and cf_right_log is not None:
+
+        total_grf_L = get_total_grf_left(cf_left_log)
+        total_grf_R = get_total_grf_right(cf_right_log)
+        total_grm_L = get_total_grm_left(cf_left_log)
+        total_grm_R = get_total_grm_right(cf_right_log)
+
+        # 2. Resuelve el vector de tiempo (solo necesitas hacerlo una vez)
         T_forces = len(cf_left_log)
         t_forces = _resolve_time(time, T_forces, dt)
+
+        # 3. Llama a la nueva función de ploteo
+        plot_summed_grf(t_forces, total_grf_L, "Left", outdir)
+        plot_summed_grf(t_forces, total_grf_R, "Right", outdir)
+        plot_summed_grm(t_forces, total_grm_L, "Left", outdir)
+        plot_summed_grm(t_forces, total_grm_R, "Right", outdir)
 
         cf_left  = _extract_forces_from_contact_log(cf_left_log)
         cf_right = _extract_forces_from_contact_log(cf_right_log)
@@ -584,5 +856,18 @@ def make_plots(
                 xlabel="Time [s]", ylabel="|Relative Error| [-]",
                 labels=LABELS_ERROR_REL,
                 filename=os.path.join(outdir, "error_rel_log.pdf"),
-                colors=ERROR_COLORS, linestyles=ERROR_LINESTYLES_REL, yscale='log'
+                colors=ERROR_COLORS, linestyles=ERROR_LINESTYLES_REL, yscale='log',
+                ylim=(1e-9, 10),       # <-- Set a tighter Y-axis range
+                  # <-- Move the legend outside the plot
             )
+    
+    if individual_wrenches_log is not None:
+        try:
+            _plot_individual_contributions(
+                time_arr=time,
+                individual_wrenches_log=individual_wrenches_log,
+                outdir=outdir,
+                plot_from_time=plot_from_time
+            )
+        except Exception as e:
+            print(f"[plots] Error al graficar contribuciones individuales: {e}")

@@ -121,6 +121,43 @@ def plotTasks(plot_from_time: float = 0.0):
 
             dfs = {k: filter_by_time(v) for k, v in dfs_raw.items()}
 
+            if task_name == "pelvis_ori_task":
+                #pos_missing = (dfs.get("pos_err") is None) or (dfs["pos_err"] is not None and dfs["pos_err"].empty)
+                vel_present = (dfs.get("vel_err") is not None) and (not dfs["vel_err"].empty)
+
+                if vel_present:
+                    vdf = dfs["vel_err"].copy()
+                    if "t" in vdf.columns:
+                        t = vdf["t"].to_numpy()
+                        data_cols = [c for c in vdf.columns if c != "t"]
+
+                        # posición = 0 antes de t0; integrar por trapecio desde t0 en adelante
+                        t0 = 3
+                        mask = t >= t0
+
+                        pos_df = pd.DataFrame({"t": t})
+                        for c in data_cols:
+                            v = vdf[c].to_numpy()
+                            pos = np.zeros_like(v, dtype=float)
+
+                            if np.any(mask):
+                                t_idx = t[mask]
+                                v_idx = v[mask]
+
+                                if t_idx.size >= 2:
+                                    dt = np.diff(t_idx)
+                                    avg = 0.5 * (v_idx[:-1] + v_idx[1:])
+                                    csum = np.concatenate(([0.0], np.cumsum(avg * dt)))  # integral acumulada con trapecio
+                                    pos[mask] = csum
+                                else:
+                                    # Si sólo hay un punto ≥ t0, la integral sigue siendo 0
+                                    pos[mask] = 0.0
+
+                            pos_df[c] = pos
+
+                        # Sustituimos/creamos pos_err sintético para esta tarea
+                        dfs["pos_err"] = pos_df
+
             if not any(v is not None and not v.empty for v in dfs.values()):
                 print(f" -> Warning: No samples with t >= {plot_from_time} for task '{task_name}'. Skipping.")
                 continue
