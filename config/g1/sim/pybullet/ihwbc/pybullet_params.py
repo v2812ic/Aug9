@@ -9,12 +9,12 @@ class Config(object):
     theta = np.pi
     rho = 1000
     nu = 1e-6
-    sw = 0.001
+    sw = 0.000001
 
     random_amplitude = 0.1
     random_frequency = 0.5
 
-    initForce = 2 # sec
+    initForce = 2 # sech
     onlyForce = True # Causa de que pete el plot de fuerzas, si lo pones a False ya no peta, le pasa a C++ una única fuerza. Debe estar en True para que C++ funcione, hemos de cambiar los plots si acaso
 
     # Sections data
@@ -38,7 +38,7 @@ class Config(object):
 
     # Simulation control
     endSimulation = 20
-    plots = True
+    plots = False
 
     # Observer
     observerActive = True
@@ -55,9 +55,9 @@ class Config(object):
     right_ids = []
     pelvis_ids = [-1]
 
-    smooth_forces = 0.1 # 0 a 1, hace que la aplicación de fuerzas no sea instantánea
+    smooth_forces = 1 # 0 a 1, hace que la aplicación de fuerzas no sea instantánea
 
-    link_idx_vec = [-1, 3, 4, 10, 11, 25] # Puntos de estimación de fuerzas
+    link_idx_vec = [-1, 1, 3, 4, 8, 10, 11] # Puntos de estimación de fuerzas
 
     
     #MAX_SIMULATION_TIME = 20  # seconds

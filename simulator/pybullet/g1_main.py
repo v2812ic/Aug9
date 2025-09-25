@@ -70,9 +70,9 @@ def main():
 
     # Timeline del experimento con swaying y pausas
     experiment_timeline = {
-        3.0:  start_walking,
+        #0.0:  start_walking,
         3.5: set_frontal_force,
-        #15.0: reset_forces,
+        4.0: start_walking,
         #20.0: set_lateral_force,
         #25.0: reset_forces,
         #30.0: set_combined_force, # <- Nueva fase
@@ -190,8 +190,8 @@ def main():
     water = Water()
 
     # == Lista de secciones del humanoide donde aplicar la fuerza ==
-    #pressureInterpolator = PressureInterpolator()
-    #sections = SectionManager(link_id_dict, Config.shin_params, Config.thigh_params, Config.pelvis_params, pressureInterpolator)
+    pressureInterpolator = PressureInterpolator()
+    sections = SectionManager(link_id_dict, Config.shin_params, Config.thigh_params, Config.pelvis_params, pressureInterpolator)
 
     # ====== Logs configurables ======
     time_log = []
@@ -236,9 +236,9 @@ def main():
                     ori_right_log = ori_right_log,
                     f_ext_log = f_ext_log,
                     f_real_log = f_real_log,
-                    individual_wrenches_log = individual_wrenches_log
-                    #f_A_r_log= f_A_r_log,
-                    #f_D_r_log = f_D_r_log 
+                    individual_wrenches_log = individual_wrenches_log,
+                    f_A_r_log= f_A_r_log,
+                    f_D_r_log = f_D_r_log 
                 )
                 plotTorques(plot_from_time=0.0)
 
@@ -362,22 +362,32 @@ def main():
         # --- Orquestador de la simulación ---
         f_A_r, t_A_r, f_D_r, t_D_r = np.zeros(3), np.zeros(3), np.zeros(3), np.zeros(3)
         f_real_ext_test = np.zeros(6)
+
+        #f_A_r, t_A_r = sections.apply_archimedes(g1_humanoid, com_W, count*dt, water)
+        #f_D_r, t_D_r = sections.apply_drag(g1_humanoid, com_W, count*dt, water, num_slices = 5)
         
         sim_state['current_time'] = count*dt
+        
+        
         for event_time, action_function in experiment_timeline.items():
             if sim_state['current_time'] >= event_time and not executed_events[event_time]:
                 action_function(sim_state) # Pasamos el diccionario de estado
                 executed_events[event_time] = True
+
+        '''
+        ESTAS FUERZAS SON PARA LOS TEST DE FUERZAS PUNTUALES, LAS QUITO PARA FUERZAS DISTRIBUIDAS
+        ============================================================================================
+        '''
         f_real_ext_test = apply_external_forces(
             g1_humanoid,
             sim_state['current_time'],
-            p_app = [0, 0, 0.1],
+            F_target= sim_state["current_force_target"],
+            p_app = [0, 0, 0.0],
             p_app_frame="LINK",
-            link_idx = 3,
-            F_target=sim_state['current_force_target'],
-            t_on=sim_state['t_force_start'],
+            link_idx = -1,
             model=model, data=data, q_pin=q_pin, com=com_W
         )
+        '''
         aux = apply_external_forces(
             g1_humanoid,
             sim_state['current_time'],
@@ -390,6 +400,7 @@ def main():
         )
 
         f_real_ext_test += aux
+        '''
 
         # --- Solver de fuerzas en las piernas
         if not count % Config.solver_frequency:
@@ -431,8 +442,7 @@ def main():
 
         F_arch = np.hstack((np.array(f_A_r), np.array(t_A_r)))
         F_drag = np.hstack((np.array(f_D_r), np.array(t_D_r)))
-        #f_real_log.append(F_arch + F_drag)
-        f_real_log.append(f_real_ext_test)
+        f_real_log.append(F_arch + F_drag)
         f_D_r_log.append(F_drag)
         f_A_r_log.append(F_arch)
         

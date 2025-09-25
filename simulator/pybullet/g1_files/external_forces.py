@@ -117,7 +117,7 @@ def apply_wrench(robot, link_idx, F_world, M_world, p_app, frame="WORLD"):
 def apply_external_forces(
     robot, t, *,
     link_idx=3,
-    F_target=np.array([0.0, 25.0, 0.0]),
+    F_target=np.array([25.0, 0.0, 0.0]),
     M_target=np.array([0.0, 0.0, 0.0]),
     p_app=None,
     p_app_frame="WORLD",

@@ -23,7 +23,7 @@ class PressureInterpolator:
         cd_value = griddata(self.points, self.values, query_point, method = 'linear')
 
         if np.isnan(cd_value):
-            print(f"Warning: Extrapolation for angle={yaw_angle_deg} and Re={reynolds_normal}, using nearest")
+            #print(f"Warning: Extrapolation for angle={yaw_angle_deg} and Re={reynolds_normal}, using nearest")
             cd_value = griddata(self.points, self.values, query_point, method = 'nearest')
 
         return cd_value.flatten()

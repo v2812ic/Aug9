@@ -14,14 +14,13 @@ def start_swaying(sim_state):
 
 def start_walking(sim_state):
     print(f"\n[{sim_state['current_time']:.2f}s] INICIANDO FORWARD WALKING...\n")
-    return
     keyboard.press('8')
     keyboard.release('8')
 
 def set_frontal_force(sim_state):
     """Aplica una fuerza frontal de -25N en X."""
     print(f"\n[{sim_state['current_time']:.2f}s] Aplicando FUERZA FRONTAL...\n")
-    sim_state['current_force_target'] = [-22.0, 0.0, 0.0]
+    sim_state['current_force_target'] = [-15.0, 0.0, 0.0]
     sim_state['t_force_start'] = sim_state['current_time']
 
 def set_lateral_force(sim_state):
