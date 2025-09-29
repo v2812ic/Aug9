@@ -41,7 +41,7 @@ class Config(object):
     plots = False
 
     # Observer
-    observerActive = True
+    observerActive = False
     n_filter_observer = 2
     gain_observer = 100
     InitObservations = 2
