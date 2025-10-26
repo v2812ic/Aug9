@@ -10,15 +10,16 @@ Seung Hyeon Bang, Carlos Gonzalez, Gabriel Moore, Dong Ho Kang, Mingyo Seo, Ryan
 
 ## Thesis Preview
 
-![Portada](preview/portada.png)
+![Portada](previews/portada.png)
 
-![Abstract](preview/abstract.png)
+![Abstract](previews/abstract.png)
 
-![Summary I](preview/summaryI.png)
-![Summary II](preview/summaryII.png)
+![Summary I](previews/summaryI.png)
+![Summary II](previews/summaryII.png)
 
 ---
 
 ## Full Document
 
-[TFG Memoria (PDF)](docs/TFG_Memoria.pdf)
+[Report](TFG_Memoria.pdf)
+
